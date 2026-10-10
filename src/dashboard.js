@@ -3,6 +3,7 @@
 import { readText, writeText } from './fs.js';
 import { splitFrontmatter, today } from './templates.js';
 import { esc } from './ui.js';
+import { parseCards, dueCards } from './repaso.js';
 
 const label = (name) => name.replace(/\.md$/i, '');
 
@@ -17,19 +18,20 @@ const TASK = /^(\s*)[-*+]\s+\[( |x|X)\]\s+(.*)$/;
 const HEADING = /^#{1,6}\s+(.*)$/;
 
 export async function scanMateria(materia) {
-  const out = { name: materia.name, path: materia.path, trabajos: [], dudas: [], clases: [], capitulos: [] };
+  const out = { name: materia.name, path: materia.path, trabajos: [], dudas: [], clases: [], capitulos: [], cards: [] };
   const temario = materia.children.find((c) => c.kind === 'dir' && c.name === 'Temario');
   if (temario) out.capitulos = temario.children.filter((c) => c.kind === 'dir').map((c) => ({ name: c.name, first: c.children.find((f) => f.kind === 'file') }));
   for await (const f of walk(materia)) {
     let text;
     try { text = await readText(f.handle); } catch { continue; }
-    const { meta } = splitFrontmatter(text);
+    const { meta, body } = splitFrontmatter(text);
     const m = Object.fromEntries(meta);
-    const section = f.path[1];
-    if (m.tipo === 'trabajo' || (section === 'Trabajos' && f.path.length === 3)) {
+    const section = f.path[f.path.length - 2] || '';
+    if (m.tipo === 'vocabulario' || /^vocab/i.test(section)) out.cards.push(...parseCards(body, label(f.name)));
+    if (m.tipo === 'trabajo' || section === 'Trabajos') {
       out.trabajos.push({ path: f.path, name: label(f.name), entrega: m.entrega || '', estado: m.estado || 'pendiente' });
     }
-    if (m.tipo === 'clase' || (section === 'Clases' && f.path.length === 3)) {
+    if (m.tipo === 'clase' || section === 'Clases') {
       out.clases.push({ path: f.path, name: label(f.name), fecha: m.fecha || '' });
     }
     let heading = '';
@@ -118,24 +120,36 @@ function clasesList(clases, showMateria) {
     </li>`).join('')}</ul>`;
 }
 
-export function renderMateria(el, data) {
+function repasoCard(cards, store, idx) {
+  if (!cards.length) return '';
+  const d = dueCards(cards, store);
+  return `<section class="dash-card repaso-card">
+      <div><h2>Repaso de vocabulario</h2>
+      <p class="repaso-num"><b>${d.queue.length}</b> tarjeta${d.queue.length === 1 ? '' : 's'} para hoy <span>(${d.due.length} para repasar · ${d.fresh.length} nueva${d.fresh.length === 1 ? '' : 's'}) de ${d.total}</span></p></div>
+      <button type="button" class="btn primary" data-review="${idx}"${d.queue.length ? '' : ' disabled'}>Repasar</button>
+    </section>`;
+}
+
+export function renderMateria(el, data, store = {}) {
   const pend = data.trabajos.filter((t) => t.estado !== 'entregado');
   const open = data.dudas.filter((d) => !d.done);
   const solved = data.dudas.length - open.length;
   el.innerHTML = `
     <header class="dash-head">
-      <p class="dash-eyebrow">Materia</p>
+      <p class="dash-eyebrow">Portada</p>
       <h1>${esc(data.name)}</h1>
       <div class="dash-stats">
         <span><b>${data.clases.length}</b> clases</span>
         <span><b>${pend.length}</b> trabajos pendientes</span>
         <span><b>${open.length}</b> dudas abiertas</span>
+        ${data.cards.length ? `<span><b>${data.cards.length}</b> tarjetas</span>` : ''}
       </div>
     </header>
-    <section class="dash-card">
+    ${repasoCard(data.cards, store, 0)}
+    ${data.trabajos.length || !data.cards.length ? `<section class="dash-card">
       <h2>Trabajos</h2>
       ${trabajosList(data.trabajos, false)}
-    </section>
+    </section>` : ''}
     <section class="dash-card">
       <h2>Dudas abiertas</h2>
       ${dudasList(open, false)}
@@ -155,7 +169,15 @@ export function renderMateria(el, data) {
   return open;
 }
 
-export function renderInicio(el, all) {
+export function renderInicio(el, all, store = {}) {
+  const withCards = all.map((m, i) => ({ m, i })).filter(({ m }) => m.cards.length);
+  const repaso = withCards.length ? `<section class="dash-card">
+      <h2>Repaso de vocabulario</h2>
+      <ul class="dash-list">${withCards.map(({ m, i }) => {
+        const d = dueCards(m.cards, store);
+        return `<li class="dash-row"><span class="dash-link">${esc(m.name)}</span><span class="dash-sub">${d.queue.length} para hoy · ${d.total} tarjetas</span><button type="button" class="tb" data-review="${i}"${d.queue.length ? '' : ' disabled'}>Repasar</button></li>`;
+      }).join('')}</ul>
+    </section>` : '';
   const pend = all.flatMap((m) => m.trabajos.filter((t) => t.estado !== 'entregado'));
   pend.sort((a, b) => (a.entrega || '9999').localeCompare(b.entrega || '9999'));
   const open = all.flatMap((m) => m.dudas.filter((d) => !d.done));
@@ -166,16 +188,17 @@ export function renderInicio(el, all) {
       <p class="dash-eyebrow">${esc(fecha)}</p>
       <h1>Inicio</h1>
       <div class="dash-stats">
-        <span><b>${all.length}</b> materia${all.length === 1 ? '' : 's'}</span>
+        <span><b>${all.length}</b> carpeta${all.length === 1 ? '' : 's'}</span>
         <span><b>${pend.length}</b> trabajos pendientes</span>
         <span><b>${open.length}</b> dudas abiertas</span>
       </div>
     </header>
-    ${all.length ? '' : '<section class="dash-card"><h2>Empezá por acá</h2><p>Creá tu primera materia con el botón <b>+ Nueva materia</b> de la izquierda.</p></section>'}
+    ${all.length ? '' : '<section class="dash-card"><h2>Empezá por acá</h2><p>Creá tu primera carpeta con el botón <b>+ Nueva carpeta</b> de la izquierda. Puede venir armada como materia, idioma o curso.</p></section>'}
     <section class="dash-card">
       <h2>Próximas entregas</h2>
       ${pend.length ? trabajosList(pend, true) : '<p class="dash-none">Nada pendiente.</p>'}
     </section>
+    ${repaso}
     <section class="dash-card">
       <h2>Dudas abiertas</h2>
       ${dudasList(open, true)}

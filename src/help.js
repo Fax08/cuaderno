@@ -4,8 +4,15 @@ import { renderLatex } from './math-nodes.js';
 const ex = (latex) => `<span class="help-math">${renderLatex(latex, false)}</span>`;
 
 const SECTIONS = [
+  ['General', [
+    ['<kbd>Ctrl</kbd>+<kbd>P</kbd>', 'Buscar en todas las notas. Al abrir un resultado queda marcado el texto encontrado.'],
+    ['<b>+</b> en el árbol', 'Agrega una página con plantilla (clase, apunte, vocabulario, gramática, trabajo…) o una carpeta.'],
+    ['⌂ en el árbol', 'Portada de la carpeta: entregas, dudas abiertas, clases y repaso de vocabulario.'],
+    ['Guardado', 'Automático. <kbd>Ctrl</kbd>+<kbd>S</kbd> guarda al instante.'],
+  ]],
   ['Insertar', [
     ['<kbd>/</kbd>', 'Menú para insertar: títulos, ecuación, gráfico, tabla, imagen, video…'],
+    ['<b>A▾</b> en la barra', 'Color de letra y resaltado del texto seleccionado.'],
     ['<kbd>Ctrl</kbd>+<kbd>M</kbd>', 'Ecuación dentro del texto. También escribiendo <code>$x^2$</code>.'],
     ['<kbd>$$</kbd> + espacio', 'Ecuación aparte, en su propia línea (o <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>).'],
     ['<kbd>#</kbd> <kbd>##</kbd> <kbd>###</kbd> + espacio', 'Títulos 1, 2 y 3. Arman el índice de la derecha.'],
@@ -32,6 +39,11 @@ const SECTIONS = [
     ['Matrices', `${ex('K^{-1}=')} ${ex('\\det(K)=')} ${ex('K^{\\top}=')} ${ex('u \\coloneq K^{-1}\\cdot F =')}`],
     ['Orden', 'Se calcula de arriba hacia abajo: usá una variable después de definirla.'],
     ['Sin “=”', 'Una ecuación sin “:=” ni “=” al final es solo una fórmula escrita; no se calcula.'],
+  ]],
+  ['Repaso de vocabulario', [
+    ['Tablas', 'Cada fila de una tabla en una página de vocabulario es una tarjeta: 1.ª columna frente, 2.ª respuesta, 3.ª ejemplo, 4.ª notas.'],
+    ['<kbd>Espacio</kbd>', 'Muestra la respuesta. Después <kbd>1</kbd> otra vez, <kbd>2</kbd> difícil, <kbd>3</kbd> bien, <kbd>4</kbd> fácil.'],
+    ['Repetición espaciada', 'Las tarjetas que sabés aparecen cada vez más espaciadas; las que fallás vuelven pronto. Hasta 20 nuevas por día.'],
   ]],
   ['Gráficos', [
     ['<code>/gráfico</code>', 'Gráfico 2D con varias curvas y(x), o 3D con una superficie z(x, y).'],

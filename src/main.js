@@ -13,12 +13,14 @@ import {
   supported, pickRoot, storedRoot, hasPermission, readTree, readText, writeText,
   getDir, exists, createFile, safeName, saveAsset,
 } from './fs.js';
-import { SECTIONS, ESTADOS, today, splitFrontmatter, joinFrontmatter, tpl } from './templates.js';
+import { SECTION_ORDER, PRESETS, KINDS, suggestKind, ESTADOS, today, splitFrontmatter, joinFrontmatter, tpl } from './templates.js';
 import { createEditor } from './editor.js';
 import { ask, toast, esc } from './ui.js';
 import { scanMateria, resolveDuda, renderMateria, renderInicio } from './dashboard.js';
 import { showHelp } from './help.js';
 import { createSymbolPanel } from './symbols.js';
+import { startReview, loadStore, parseCards } from './repaso.js';
+import { createSearch, revealText } from './search.js';
 
 // ---------- estado ----------
 const ls = {
@@ -41,11 +43,11 @@ document.querySelector('#app').innerHTML = `
     <div class="side-head">
       <div class="brand">Cuaderno</div>
       <div class="folder" id="folderName" title="Carpeta de notas"></div>
-      <button type="button" class="nav-home" id="goHome">Inicio</button>
+      <div class="nav-row"><button type="button" class="nav-home" id="goHome">Inicio</button><button type="button" class="nav-home" id="goSearch" title="Buscar en todas las notas (Ctrl+P)">Buscar <kbd>Ctrl P</kbd></button></div>
     </div>
     <nav class="tree" id="tree"></nav>
     <div class="side-foot">
-      <button class="btn primary" id="newMateria" type="button">+ Nueva materia</button>
+      <button class="btn primary" id="newMateria" type="button">+ Nueva carpeta</button>
       <div class="side-foot-row">
         <button class="link-btn" id="reload" type="button" title="Releer la carpeta si cambiaste archivos por fuera">Actualizar</button>
         <button class="link-btn" id="changeFolder" type="button">Cambiar carpeta</button>
@@ -140,6 +142,7 @@ $('editor').addEventListener('click', (e) => {
 document.addEventListener('keydown', (e) => {
   const mod = e.ctrlKey || e.metaKey;
   if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
+  if (mod && e.key.toLowerCase() === 'p' && S.root) { e.preventDefault(); search.open(); }
   if (mod && e.key.toLowerCase() === 'k' && S.page) { e.preventDefault(); actions.askLink(); }
 });
 
@@ -208,13 +211,13 @@ async function start(root) {
   $('folderName').textContent = root.name;
   await refreshTree();
   const last = ls.get('cuaderno.last', null);
-  if (Array.isArray(last) && last[0] === '@materia' && findNode([last[1]])) showMateria([last[1]]);
+  if (Array.isArray(last) && last[0] === '@materia' && findNode(last.slice(1))) showMateria(last.slice(1));
   else if (Array.isArray(last) && last[0] !== '@inicio' && findNode(last)) openPage(last);
   else showInicio();
 }
 
 // ---------- Inicio y portada de materia ----------
-const dash = { open: [], rerender: null };
+const dash = { open: [], rerender: null, cards: [], titles: [] };
 
 async function closePage() {
   await save();
@@ -235,14 +238,20 @@ async function showDash(kind, path) {
     if (kind === 'materia') {
       const node = findNode(path);
       if (!node) return showInicio();
-      dash.open = renderMateria(el, await scanMateria(node));
+      const data = await scanMateria(node);
+      dash.open = renderMateria(el, data, await loadStore(S.root));
+      dash.cards = [data.cards];
+      dash.titles = [data.name];
       dash.rerender = () => showMateria(path);
-      $('crumbs').innerHTML = `<span class="here">${esc(path[0])}</span>`;
-      document.title = `${path[0]} · Cuaderno`;
-      ls.set('cuaderno.last', ['@materia', path[0]]);
+      $('crumbs').innerHTML = path.map((x, i) => `<span class="${i === path.length - 1 ? 'here' : ''}">${esc(x)}</span>`).join('<span class="sep">›</span>');
+      document.title = `${node.name} · Cuaderno`;
+      ls.set('cuaderno.last', ['@materia', ...path]);
     } else {
       const materias = S.tree.children.filter((c) => c.kind === 'dir');
-      dash.open = renderInicio(el, await Promise.all(materias.map(scanMateria)));
+      const all = await Promise.all(materias.map(scanMateria));
+      dash.open = renderInicio(el, all, await loadStore(S.root));
+      dash.cards = all.map((x) => x.cards);
+      dash.titles = all.map((x) => x.name);
       dash.rerender = showInicio;
       $('crumbs').innerHTML = '<span class="here">Inicio</span>';
       document.title = 'Cuaderno';
@@ -259,6 +268,12 @@ const showMateria = (path) => showDash('materia', path);
 $('dash').addEventListener('click', async (e) => {
   const o = e.target.closest('[data-open]');
   if (o) { openPage(o.dataset.open.split('/')); return; }
+  const rv = e.target.closest('[data-review]');
+  if (rv) {
+    const i = Number(rv.dataset.review);
+    startReview({ root: S.root, cards: dash.cards[i] || [], title: `Repaso · ${dash.titles[i] || ''}`, onClose: () => dash.rerender?.() });
+    return;
+  }
   const r = e.target.closest('[data-resolve]');
   if (r) {
     try {
@@ -269,6 +284,8 @@ $('dash').addEventListener('click', async (e) => {
   }
 });
 $('goHome').addEventListener('click', () => showInicio());
+const search = createSearch({ getTree: () => S.tree, openPage: (path, q) => openPage(path, q) });
+$('goSearch').addEventListener('click', () => search.open());
 
 // ---------- árbol ----------
 async function refreshTree() {
@@ -285,6 +302,9 @@ function findNode(path, node = S.tree) {
 
 const label = (name) => name.replace(/\.md$/i, '');
 const P = (path) => esc(path.join('/'));
+const isSection = (name) => SECTION_ORDER.includes(name);
+// Carpeta "con portada": las de primer nivel y las que tienen secciones adentro (Clases, Vocabulario…)
+const isHub = (d, depth) => depth === 0 || d.children.some((c) => c.kind === 'dir' && isSection(c.name));
 
 function fileItem(f) {
   const active = S.page && S.page.path.join('/') === f.path.join('/');
@@ -295,41 +315,36 @@ function details(key, summary, inner, cls) {
   return `<details class="${cls}" data-key="${esc(key)}"${S.open.has(key) ? ' open' : ''}><summary>${summary}</summary>${inner}</details>`;
 }
 
-function sectionAction(sectionName, depthInTemario) {
-  if (depthInTemario === 1) return ['pagina', '+ página'];
-  return ({ Clases: ['clase', '+ clase'], Temario: ['capitulo', '+ capítulo'], Trabajos: ['trabajo', '+ trabajo'], Dudas: ['pagina', '+ página'] })[sectionName] || ['pagina', '+ página'];
+const addBtn = (path) => `<button type="button" class="add" data-menu="${P(path)}" title="Agregar página o carpeta">+</button>`;
+
+function sortDirs(dirs) {
+  const rank = (d) => { const i = SECTION_ORDER.indexOf(d.name); return i < 0 ? 99 : i; };
+  return [...dirs].sort((a, b) => rank(a) - rank(b));
 }
 
-function renderDirBody(dir, sectionName, depthInTemario) {
-  const files = dir.children.filter((c) => c.kind === 'file');
-  const dirs = dir.children.filter((c) => c.kind === 'dir');
-  let html = '';
-  if (files.length) html += `<ul class="pages">${files.map(fileItem).join('')}</ul>`;
-  for (const d of dirs) {
-    const [act, txt] = sectionAction(sectionName, depthInTemario + 1);
-    html += details(d.path.join('/'),
-      `<span class="sum-name">${esc(d.name)}</span><button type="button" class="add" data-act="${act}" data-path="${P(d.path)}" title="${txt}">+</button>`,
-      renderDirBody(d, sectionName, depthInTemario + 1), 'chapter');
-  }
+function renderBody(d, depth) {
+  const files = d.children.filter((c) => c.kind === 'file');
+  const dirs = sortDirs(d.children.filter((c) => c.kind === 'dir'));
+  let html = files.length ? `<ul class="pages">${files.map(fileItem).join('')}</ul>` : '';
+  html += dirs.map((c) => renderDir(c, depth + 1)).join('');
   if (!files.length && !dirs.length) html += '<p class="none">Vacío</p>';
   return html;
 }
 
-function renderTree() {
-  const materias = S.tree.children.filter((c) => c.kind === 'dir');
-  const order = (n) => { const i = SECTIONS.indexOf(n.name); return i < 0 ? 99 : i; };
-  let html = '';
-  for (const m of materias) {
-    const secs = m.children.filter((c) => c.kind === 'dir').sort((a, b) => order(a) - order(b));
-    const loose = m.children.filter((c) => c.kind === 'file');
-    const inner = (loose.length ? `<ul class="pages">${loose.map(fileItem).join('')}</ul>` : '')
-      + secs.map((s) => {
-        const [act, txt] = sectionAction(s.name, 0);
-        return `<div class="section"><div class="sec-head"><span class="sec-name">${esc(s.name)}</span><button type="button" class="add" data-act="${act}" data-path="${P(s.path)}" title="${txt}">+</button></div>${renderDirBody(s, s.name, 0)}</div>`;
-      }).join('');
-    html += details(m.path.join('/'), `<span class="sum-name">${esc(m.name)}</span><button type="button" class="add home" data-home="${P(m.path)}" title="Portada: entregas, dudas y clases">⌂</button>`, inner, 'materia');
+function renderDir(d, depth) {
+  if (depth > 0 && isSection(d.name)) {
+    return `<div class="section"><div class="sec-head"><span class="sec-name">${esc(d.name)}</span>${addBtn(d.path)}</div>${renderBody(d, depth)}</div>`;
   }
-  if (!materias.length) html = '<p class="none pad">Todavía no hay materias. Creá la primera con el botón de abajo.</p>';
+  const home = isHub(d, depth) ? `<button type="button" class="add home" data-home="${P(d.path)}" title="Portada: entregas, dudas, clases y repaso">⌂</button>` : '';
+  return details(d.path.join('/'), `<span class="sum-name">${esc(d.name)}</span>${home}${addBtn(d.path)}`, renderBody(d, depth), depth === 0 ? 'materia' : 'chapter');
+}
+
+function renderTree() {
+  const files = S.tree.children.filter((c) => c.kind === 'file');
+  const dirs = sortDirs(S.tree.children.filter((c) => c.kind === 'dir'));
+  let html = files.length ? `<ul class="pages root-pages">${files.map(fileItem).join('')}</ul>` : '';
+  html += dirs.map((d) => renderDir(d, 0)).join('');
+  if (!dirs.length && !files.length) html = '<p class="none pad">La carpeta está vacía. Creá la primera carpeta con el botón de abajo.</p>';
   $('tree').innerHTML = html;
 }
 
@@ -343,23 +358,55 @@ $('tree').addEventListener('toggle', (e) => {
 $('tree').addEventListener('click', (e) => {
   const home = e.target.closest('[data-home]');
   if (home) { e.preventDefault(); e.stopPropagation(); showMateria(home.dataset.home.split('/')); return; }
-  const add = e.target.closest('.add');
-  if (add) { e.preventDefault(); e.stopPropagation(); create(add.dataset.act, add.dataset.path.split('/')); return; }
+  const add = e.target.closest('[data-menu]');
+  if (add) { e.preventDefault(); e.stopPropagation(); openCreateMenu(add, add.dataset.menu.split('/')); return; }
   const link = e.target.closest('[data-open]');
   if (link) openPage(link.dataset.open.split('/'));
 });
 
+// ---------- menú "+" ----------
+let menuEl = null;
+function closeMenu() { if (menuEl) { menuEl.remove(); menuEl = null; } }
+document.addEventListener('mousedown', (e) => { if (menuEl && !menuEl.contains(e.target)) closeMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+
+function openCreateMenu(btn, path) {
+  closeMenu();
+  const sug = suggestKind(path[path.length - 1]);
+  const kinds = [KINDS.find((k) => k.id === sug), ...KINDS.filter((k) => k.id !== sug)];
+  menuEl = document.createElement('div');
+  menuEl.className = 'create-menu';
+  menuEl.setAttribute('role', 'menu');
+  menuEl.innerHTML = `<p class="cm-title">Agregar en “${esc(path[path.length - 1])}”</p>
+    ${kinds.map((k, i) => `<button type="button" role="menuitem" class="cm-item${i === 0 ? ' sug' : ''}" data-kind="${k.id}">${esc(k.label)}${i === 0 ? '<span>sugerida</span>' : ''}</button>`).join('')}
+    <hr><button type="button" role="menuitem" class="cm-item" data-kind="carpeta">Carpeta…</button>`;
+  document.body.appendChild(menuEl);
+  const r = btn.getBoundingClientRect();
+  menuEl.style.left = `${Math.min(r.left, window.innerWidth - menuEl.offsetWidth - 12)}px`;
+  menuEl.style.top = `${Math.min(r.bottom + 4, window.innerHeight - menuEl.offsetHeight - 12)}px`;
+  menuEl.querySelector('.cm-item').focus();
+  menuEl.addEventListener('click', (e) => {
+    const it = e.target.closest('[data-kind]');
+    if (!it) return;
+    closeMenu();
+    if (it.dataset.kind === 'carpeta') newFolder(path);
+    else create(it.dataset.kind, path);
+  });
+}
+
 // ---------- crear ----------
 const pad2 = (n) => String(n).padStart(2, '0');
+// Nombre de la materia / cuaderno al que pertenece una carpeta
+const ownerName = (path) => (path.length > 1 && isSection(path[path.length - 1]) ? path[path.length - 2] : path[path.length - 1]);
 
 async function create(kind, path) {
   try {
     const dirNode = findNode(path);
     const dir = await getDir(S.root, path);
-    const materia = path[0];
+    const materia = ownerName(path);
     let made;
     if (kind === 'clase') {
-      const n = dirNode.children.filter((c) => c.kind === 'file').length + 1;
+      const n = dirNode.children.filter((c) => c.kind === 'file' && /clase/i.test(c.name)).length + 1;
       const r = await ask({ title: `Nueva clase · ${materia}`, fields: [
         { name: 'fecha', label: 'Fecha', type: 'date', value: today() },
         { name: 'numero', label: 'Número de clase', value: pad2(n) },
@@ -370,17 +417,16 @@ async function create(kind, path) {
       made = await createFile(dir, `${name}.md`, tpl.clase({ materia, ...r }));
     } else if (kind === 'capitulo') {
       const n = dirNode.children.filter((c) => c.kind === 'dir').length + 1;
-      const r = await ask({ title: `Nuevo capítulo · ${materia}`, text: 'Cada capítulo es un sub-libro: arranca con una página de teoría y le podés sumar las que quieras.', fields: [
+      const r = await ask({ title: `Nuevo capítulo · ${materia}`, text: 'Cada capítulo es una sub-carpeta: arranca con una página de teoría y le podés sumar las que quieras.', fields: [
         { name: 'numero', label: 'Número', value: pad2(n) },
         { name: 'nombre', label: 'Nombre', placeholder: 'Tensores', required: true },
       ], ok: 'Crear capítulo' });
       if (!r) return;
       const folder = safeName(`${r.numero} ${r.nombre}`);
-      if (await exists(dir, folder)) return toast(`Ya existe el capítulo “${folder}”.`, 'bad');
+      if (await exists(dir, folder)) return toast(`Ya existe “${folder}”.`, 'bad');
       const chapter = await dir.getDirectoryHandle(folder, { create: true });
       made = await createFile(chapter, 'Teoría.md', tpl.capitulo(r));
       path = [...path, folder];
-      S.open.add(path.join('/'));
     } else if (kind === 'trabajo') {
       const r = await ask({ title: `Nuevo trabajo · ${materia}`, fields: [
         { name: 'nombre', label: 'Nombre', placeholder: 'TP1 Círculos de Mohr', required: true },
@@ -388,6 +434,19 @@ async function create(kind, path) {
       ], ok: 'Crear trabajo' });
       if (!r) return;
       made = await createFile(dir, `${safeName(r.nombre)}.md`, tpl.trabajo(r));
+    } else if (kind === 'apunte') {
+      const r = await ask({ title: 'Nuevo apunte', fields: [
+        { name: 'nombre', label: 'Título', placeholder: 'Introducción a NumPy', required: true },
+        { name: 'fecha', label: 'Fecha', type: 'date', value: today() },
+      ], ok: 'Crear apunte' });
+      if (!r) return;
+      made = await createFile(dir, `${safeName(r.nombre)}.md`, tpl.apunte(r));
+    } else if (kind === 'vocabulario' || kind === 'gramatica') {
+      const r = await ask({ title: kind === 'vocabulario' ? 'Nueva lista de vocabulario' : 'Nuevo tema de gramática', fields: [
+        { name: 'nombre', label: 'Nombre', placeholder: kind === 'vocabulario' ? 'Verbos frecuentes' : 'Present perfect', required: true },
+      ], ok: 'Crear' });
+      if (!r) return;
+      made = await createFile(dir, `${safeName(r.nombre)}.md`, tpl[kind](r));
     } else {
       const r = await ask({ title: 'Nueva página', fields: [{ name: 'nombre', label: 'Nombre', placeholder: 'Ejercicios', required: true }], ok: 'Crear página' });
       if (!r) return;
@@ -400,23 +459,32 @@ async function create(kind, path) {
   } catch (e) { toast(e.message, 'bad'); }
 }
 
-$('newMateria').addEventListener('click', async () => {
-  const r = await ask({ title: 'Nueva materia', text: 'Se crean las secciones Clases, Dudas, Temario y Trabajos.', fields: [{ name: 'nombre', label: 'Nombre de la materia', placeholder: 'Mecánica del Continuo', required: true }], ok: 'Crear materia' });
+async function newFolder(path) {
+  const where = path.length ? `en “${path[path.length - 1]}”` : 'en la carpeta principal';
+  const r = await ask({ title: 'Nueva carpeta', text: `Se crea ${where}. Podés elegir que venga con secciones armadas.`, fields: [
+    { name: 'nombre', label: 'Nombre', placeholder: path.length ? 'Unidad 1' : 'Inglés', required: true },
+    { name: 'tipo', label: 'Contenido', options: PRESETS.map((p) => p.label), value: PRESETS[0].label },
+  ], ok: 'Crear carpeta' });
   if (!r) return;
   try {
+    const parent = await getDir(S.root, path);
     const name = safeName(r.nombre);
-    if (await exists(S.root, name)) return toast(`Ya existe “${name}”.`, 'bad');
-    const m = await S.root.getDirectoryHandle(name, { create: true });
-    for (const s of SECTIONS) await m.getDirectoryHandle(s, { create: true });
-    const dudas = await m.getDirectoryHandle('Dudas');
-    await createFile(dudas, 'Dudas.md', tpl.dudas({ materia: name }));
-    S.open.add(name);
+    if (await exists(parent, name)) return toast(`Ya existe “${name}”.`, 'bad');
+    const d = await parent.getDirectoryHandle(name, { create: true });
+    const preset = PRESETS.find((p) => p.label === r.tipo) || PRESETS[0];
+    for (const s of preset.sections) await d.getDirectoryHandle(s, { create: true });
+    if (preset.sections.includes('Dudas')) await createFile(await d.getDirectoryHandle('Dudas'), 'Dudas.md', tpl.dudas({ materia: name }));
+    if (preset.sections.includes('Vocabulario')) await createFile(await d.getDirectoryHandle('Vocabulario'), 'Vocabulario general.md', tpl.vocabulario({ nombre: `Vocabulario general · ${name}` }));
+    const full = [...path, name];
+    for (let i = 1; i <= full.length; i++) S.open.add(full.slice(0, i).join('/'));
     ls.set('cuaderno.open', [...S.open]);
     await refreshTree();
-    toast(`Materia “${name}” creada.`);
-    showMateria([name]);
+    toast(`Carpeta “${name}” creada.`);
+    if (preset.sections.length) showMateria(full);
   } catch (e) { toast(e.message, 'bad'); }
-});
+}
+
+$('newMateria').addEventListener('click', () => newFolder([]));
 
 $('reload').addEventListener('click', async () => { await save(); await refreshTree(); toast('Carpeta actualizada.'); });
 $('changeFolder').addEventListener('click', async () => { await save(); choose(); });
@@ -427,7 +495,7 @@ $('toggleSide').addEventListener('click', () => {
 });
 
 // ---------- abrir página ----------
-async function openPage(path) {
+async function openPage(path, query) {
   await save();
   const node = findNode(path);
   if (!node || node.kind !== 'file') return;
@@ -455,6 +523,7 @@ async function openPage(path) {
     setStatus('Guardado');
     document.title = `${label(node.name)} · Cuaderno`;
     ls.set('cuaderno.last', path);
+    if (query) setTimeout(() => revealText(editor, query), 80);
     if (window.innerWidth < 900) { appEl.dataset.sidebar = 'closed'; }
   } catch (e) {
     S.loading = false;
@@ -468,7 +537,7 @@ function renderCrumbs() {
 }
 
 // ---------- propiedades (frontmatter) ----------
-const TIPOS = { clase: 'Clase', capitulo: 'Capítulo', trabajo: 'Trabajo', dudas: 'Dudas' };
+const TIPOS = { clase: 'Clase', capitulo: 'Capítulo', trabajo: 'Trabajo', dudas: 'Dudas', apunte: 'Apunte', vocabulario: 'Vocabulario', gramatica: 'Gramática' };
 function renderProps() {
   const meta = S.page.meta;
   const tipo = meta.find(([k]) => k === 'tipo')?.[1];
@@ -481,9 +550,18 @@ function renderProps() {
     else input = `<input id="${id}" data-i="${i}" value="${esc(v)}">`;
     return `<label class="prop"><span>${esc(k)}</span>${input}</label>`;
   }).join('');
-  $('props').innerHTML = (tipo ? `<span class="tipo tipo-${esc(tipo)}">${TIPOS[tipo] || esc(tipo)}</span>` : '') + fields;
+  const review = tipo === 'vocabulario' ? '<button type="button" class="btn primary small" data-review-page>Repasar esta lista</button>' : '';
+  $('props').innerHTML = (tipo ? `<span class="tipo tipo-${esc(tipo)}">${TIPOS[tipo] || esc(tipo)}</span>` : '') + fields + review;
   $('props').hidden = !tipo && !fields;
 }
+$('props').addEventListener('click', async (e) => {
+  if (!e.target.closest('[data-review-page]') || !S.page) return;
+  await save();
+  const name = label(S.page.path[S.page.path.length - 1]);
+  const cards = parseCards(editor.getMarkdown(), name);
+  if (!cards.length) return toast('Esta página no tiene una tabla con palabras. La primera columna es el frente y la segunda, la respuesta.', 'bad');
+  startReview({ root: S.root, cards, title: `Repaso · ${name}` });
+});
 $('props').addEventListener('change', (e) => {
   const i = e.target.dataset.i;
   if (i === undefined || !S.page) return;

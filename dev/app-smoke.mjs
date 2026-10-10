@@ -122,11 +122,43 @@ console.log('ESTADO:', await page.$eval('#status', (el) => el.textContent));
 await page.screenshot({ path: `${shots}/app-clase.png` });
 
 // Crear una clase nueva con el diálogo
-await page.click('[data-act="clase"]');
+await page.evaluate(() => [...document.querySelectorAll('.sec-head')].find((h) => h.textContent.includes('Clases')).querySelector('[data-menu]').click());
+await wait(200);
+console.log('MENÚ +:', await page.$$eval('.cm-item', (els) => els.map((e) => e.textContent).slice(0, 3)));
+await page.click('.cm-item[data-kind="clase"]');
 await wait(300);
 await page.type('#dlg-tema', 'Cinemática');
 await page.click('.dialog [value="ok"]');
 await wait(1200);
 console.log('NUEVA CLASE ABIERTA:', await page.$eval('#crumbs', (el) => el.innerText.replace(/\s+/g, ' ')));
+// Búsqueda
+await page.keyboard.down('Control'); await page.keyboard.press('p'); await page.keyboard.up('Control');
+await wait(400);
+await page.type('#searchInput', 'cauchy');
+await wait(500);
+console.log('BÚSQUEDA cauchy:', await page.$$eval('.search-item .si-name', (els) => els.map((e) => e.textContent)));
+await page.keyboard.press('Enter');
+await wait(1200);
+console.log('ABRIÓ Y MARCÓ:', await page.$eval('#crumbs', (el) => el.innerText.replace(/s+/g, ' ')), '|', await page.evaluate(() => { const ed = window.cuaderno.editor; const { from, to } = ed.state.selection; return ed.state.doc.textBetween(from, to); }));
+// Nueva carpeta tipo idioma en la raíz
+await page.click('#newMateria');
+await wait(300);
+await page.type('#dlg-nombre', 'Italiano');
+await page.select('#dlg-tipo', 'Idioma · Clases, Vocabulario, Gramática, Dudas');
+await page.click('.dialog [value="ok"]');
+await wait(1500);
+console.log('PORTADA IDIOMA:', (await page.$eval('#dash', (el) => el.innerText)).replace(/s+/g, ' ').slice(0, 160));
+await page.click('[data-review="0"]');
+await wait(400);
+console.log('TARJETA:', await page.$eval('.rv-big', (el) => el.textContent));
+await page.keyboard.press(' ');
+await wait(200);
+console.log('RESPUESTA:', await page.$eval('.rv-answer', (el) => el.textContent));
+await page.keyboard.press('3');
+await wait(600);
+const store = await page.evaluate(async () => { const r = await navigator.storage.getDirectory(); const p = await r.getDirectoryHandle('Posgrado'); return JSON.parse(await (await (await p.getFileHandle('.repaso.json')).getFile()).text()); });
+console.log('PROGRESO GUARDADO:', JSON.stringify(store));
+await page.keyboard.press('Escape');
+await page.screenshot({ path: `${shots}/app-final.png` });
 console.log('PROBLEMAS:', problems.length ? problems : 'ninguno');
 await browser.close();

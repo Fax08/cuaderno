@@ -1,12 +1,18 @@
 # Cuaderno
 
-Entorno de notas para el posgrado: materias organizadas en **Clases**, **Dudas**, **Temario** y **Trabajos**, con ecuaciones visuales, cálculo con unidades al estilo MathCad y gráficos 2D/3D.
+Entorno de notas propio: carpetas libres (posgrado, idiomas, cursos), ecuaciones visuales, cálculo con unidades al estilo MathCad, gráficos 2D/3D, tarjetas de repaso para vocabulario y búsqueda en todas las notas.
+
+> **Si algo se pierde o deja de abrir:** en la carpeta de notas está `LEÉME - Cómo funciona este cuaderno.md`, con dónde está cada cosa y cómo recuperarla.
 
 **Usar:** abrí https://fax08.github.io/cuaderno en Chrome o Edge y elegí tu carpeta de notas.
 
 Las notas se guardan como archivos Markdown (`.md`) en una carpeta de tu computadora. No se suben a ningún lado: esta página solo lee y escribe en la carpeta que elijas.
 
-## Estructura de la carpeta
+## Organización
+
+Las carpetas son libres. El botón **+** de cada carpeta agrega una página con plantilla (página en blanco, apunte, clase, vocabulario, gramática, trabajo, capítulo) o una sub-carpeta. **+ Nueva carpeta** puede crearla vacía o armada como *materia*, *idioma* o *curso*. Las carpetas llamadas Clases, Dudas, Temario, Trabajos, Vocabulario, Gramática, Módulos, Apuntes y Proyectos se muestran como secciones.
+
+### Ejemplo
 
 ```
 Posgrado/
@@ -59,6 +65,14 @@ K^{-1} =   det(K) =       matrices
 - El botón ⌂ de cada materia abre su portada.
 - Las **dudas** se juntan de tres lugares: las tareas (`- [ ]`) de la sección Dudas, las que están bajo un título que diga "duda" en cualquier apunte, y las que empiezan con "¿". "Resuelta" las tilda en el archivo.
 
+## Repaso de vocabulario
+
+Cada fila de una tabla en una página de vocabulario es una tarjeta (1.ª columna frente, 2.ª respuesta, 3.ª ejemplo, 4.ª notas). **Repasar** abre las tarjetas del día con repetición espaciada: espacio muestra la respuesta, 1–4 la califica. El progreso se guarda en `.repaso.json` en la carpeta de notas.
+
+## Búsqueda
+
+`Ctrl+P` busca en nombres y texto de todas las notas; al abrir un resultado queda marcado el texto encontrado.
+
 ## Otros atajos
 
 | Acción | Atajo |
@@ -92,4 +106,8 @@ Publicar en GitHub Pages: `npm run deploy` (compila y sube `dist/` a la rama `gh
 5. ✅ Gráficos 2D y 3D con las variables de la página
 6. ✅ Portada de materia e Inicio: entregas, dudas abiertas, clases
 
-Ideas para después: renombrar y borrar páginas desde el árbol, buscar en todas las notas, exportar a PDF, integrales y derivadas numéricas, links entre páginas.
+7. ✅ Panel de símbolos, colores de letra y resaltado
+8. ✅ Carpetas libres con plantillas, vocabulario con tarjetas de repaso, gramática
+9. ✅ Búsqueda en todas las notas
+
+Ideas para después: renombrar y borrar desde el árbol, exportar a PDF, integrales y derivadas numéricas, links entre páginas.
