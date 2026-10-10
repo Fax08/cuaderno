@@ -73,6 +73,28 @@ export function configureMathfield(mf) {
   mf.defaultMode = 'math';
 }
 
+// ---------- bloqueo de fórmulas ----------
+// Bloqueadas (por defecto): un clic solo selecciona; doble clic o Enter abre el editor.
+// Desbloqueadas: un clic abre el editor.
+const lockKey = 'cuaderno.mathLocked';
+export const mathLock = {
+  locked: (() => { try { return localStorage.getItem(lockKey) !== 'false'; } catch { return true; } })(),
+  set(v) {
+    this.locked = v;
+    try { localStorage.setItem(lockKey, String(v)); } catch { /* sin almacenamiento */ }
+    document.documentElement.classList.toggle('math-locked', v);
+  },
+};
+document.documentElement.classList.toggle('math-locked', mathLock.locked);
+
+// La barra de desplazamiento aparece solo si la ecuación de verdad no entra
+const mathViews = new Set();
+let resizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => mathViews.forEach((v) => v.checkOverflow()), 150);
+});
+
 // ---------- vista de una ecuación ----------
 class MathView {
   constructor({ node, view, getPos, block }) {
@@ -81,9 +103,11 @@ class MathView {
     this.getPos = getPos;
     this.block = block;
     this.mf = null;
+    this.forceOpen = false;
     this.dom = document.createElement(block ? 'div' : 'span');
     this.dom.className = `math-node ${block ? 'math-block' : 'math-inline'}`;
     this.dom.contentEditable = 'false';
+    this.dom.mathView = this;
     this.out = document.createElement('span');
     this.out.className = 'math-render';
     this.res = document.createElement('span');
@@ -92,11 +116,34 @@ class MathView {
     this.dom.addEventListener('mousedown', (e) => {
       if (this.mf) return;
       e.preventDefault();
-      this.selectSelf();
+      if (e.detail >= 2) return; // el doble clic lo maneja 'dblclick'
+      if (mathLock.locked) this.selectSelf();
+      else this.edit();
+    });
+    this.dom.addEventListener('dblclick', (e) => {
+      if (this.mf) return;
+      e.preventDefault();
+      this.edit();
     });
     this.draw();
     engine.views.add(this);
+    mathViews.add(this);
     this.refresh();
+  }
+
+  // Abre el editor aunque las fórmulas estén bloqueadas
+  edit() {
+    if (this.mf) return;
+    if (this.dom.classList.contains('selected')) { this.open(); return; }
+    this.forceOpen = true;
+    this.selectSelf();
+    this.forceOpen = false;
+  }
+
+  checkOverflow() {
+    const o = this.out;
+    o.classList.remove('scroll-x');
+    if (!this.mf && o.scrollWidth > o.clientWidth + 6) o.classList.add('scroll-x');
   }
 
   selectSelf() {
@@ -109,6 +156,7 @@ class MathView {
   draw() {
     const latex = this.node.attrs.latex;
     this.out.innerHTML = latex.trim() ? renderLatex(uprightUnits(latex), this.block) : '<span class="math-empty">ecuación</span>';
+    requestAnimationFrame(() => this.checkOverflow());
   }
 
   refresh() {
@@ -126,7 +174,8 @@ class MathView {
 
   selectNode() {
     this.dom.classList.add('selected');
-    this.open();
+    // Una ecuación nueva (vacía) se abre siempre para poder escribirla
+    if (!mathLock.locked || this.forceOpen || !this.node.attrs.latex.trim()) this.open();
   }
 
   deselectNode() {
@@ -240,7 +289,17 @@ class MathView {
 
   stopEvent(e) { return !!this.mf && (e.target === this.mf || this.mf.contains(e.target)); }
   ignoreMutation() { return true; }
-  destroy() { engine.views.delete(this); }
+  destroy() { engine.views.delete(this); mathViews.delete(this); }
+}
+
+// Enter sobre una fórmula seleccionada (con las fórmulas bloqueadas) la abre para editar
+function openSelectedMath(editor, typeName) {
+  const sel = editor.state.selection;
+  if (!(sel instanceof NodeSelection) || sel.node.type.name !== typeName) return false;
+  const dom = editor.view.nodeDOM(sel.from);
+  if (!dom || !dom.mathView || dom.mathView.mf) return false;
+  dom.mathView.open();
+  return true;
 }
 
 // ---------- nodos ----------
@@ -281,7 +340,10 @@ export const MathInline = Node.create({
     };
   },
   addKeyboardShortcuts() {
-    return { 'Mod-m': () => this.editor.commands.insertMathInline() };
+    return {
+      'Mod-m': () => this.editor.commands.insertMathInline(),
+      Enter: () => openSelectedMath(this.editor, this.name),
+    };
   },
   addInputRules() {
     return [new InputRule({
@@ -332,7 +394,10 @@ export const MathBlock = Node.create({
     };
   },
   addKeyboardShortcuts() {
-    return { 'Mod-Shift-m': () => this.editor.commands.insertMathBlock() };
+    return {
+      'Mod-Shift-m': () => this.editor.commands.insertMathBlock(),
+      Enter: () => openSelectedMath(this.editor, this.name),
+    };
   },
   addInputRules() {
     return [new InputRule({

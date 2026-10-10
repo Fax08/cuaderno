@@ -265,7 +265,7 @@ math-field::part(virtual-keyboard-toggle) { display: none; }
 /* ---------- navegación lateral ---------- */
 .nav-row { display: flex; gap: 6px; margin-top: 10px; }
 .nav-row .nav-home { margin-top: 0; flex: 1; display: flex; justify-content: space-between; align-items: center; gap: 6px; }
-.nav-home kbd { font-size: 10px; color: var(--muted); }
+.nav-home kbd { font-size: 10px; color: var(--muted); white-space: nowrap; }
 .root-pages { margin-bottom: 8px; }
 .btn.small { padding: 4px 10px; font-size: 12.5px; }
 .props .btn.small { margin-left: auto; }
@@ -336,7 +336,16 @@ math-field::part(virtual-keyboard-toggle) { display: none; }
 .math-inline { display: inline-flex; align-items: baseline; gap: .35em; padding: 0 2px; vertical-align: baseline; }
 .math-block { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 14px; padding: 6px 10px; margin: .6em 0; min-height: 2.4em; }
 .math-block .katex-display { margin: 0; }
-.math-render { max-width: 100%; overflow-x: auto; overflow-y: hidden; }
+.math-render { max-width: 100%; min-width: 0; overflow: visible; }
+.math-render.scroll-x { overflow-x: auto; overflow-y: hidden; padding-bottom: 4px; scrollbar-width: thin; }
+.math-block .math-render.scroll-x { flex: 1 1 100%; }
+/* Fórmulas bloqueadas: se leen como texto; doble clic para editar */
+.math-locked .math-node { cursor: default; }
+.math-locked .math-node:hover { background: transparent; outline: 1px dashed var(--rule); outline-offset: 2px; }
+.math-locked .math-node.selected { background: var(--accent-soft); outline: none; }
+.tb[data-id="lock"] { display: inline-flex; align-items: center; gap: 5px; }
+.tb[data-id="lock"][aria-pressed="false"] { color: var(--warn); }
+.tb-lock-ico { flex: 0 0 auto; }
 .math-empty { font: italic 14px var(--sans); color: var(--muted); border: 1px dashed var(--rule); border-radius: 4px; padding: 2px 10px; }
 .math-result { font-size: .98em; color: var(--accent); }
 .math-result:empty { display: none; }

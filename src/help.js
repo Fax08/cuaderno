@@ -28,6 +28,7 @@ const SECTIONS = [
     ['<kbd>Alt</kbd>+<kbd>Enter</kbd>', 'Agrega una fila a la matriz. <kbd>Ctrl</kbd>+<kbd>Alt</kbd>+<kbd>Enter</kbd> agrega una columna. Clic derecho para más opciones.'],
     ['<code>TT</code> <code>inv</code>', `Traspuesta ${ex('K^{\\top}')} e inversa ${ex('K^{-1}')}`],
     ['<kbd>Enter</kbd> <kbd>Esc</kbd>', 'Terminar la ecuación. <kbd>Shift</kbd>+<kbd>Enter</kbd> crea otra ecuación debajo.'],
+    ['Fórmulas bloqueadas', 'Con el botón 🔒 de la barra activado, un clic solo selecciona la fórmula; para editarla, doble clic o <kbd>Enter</kbd>. Desactivado, un clic la abre.'],
   ]],
   ['Calcular como en MathCad', [
     ['<code>:=</code>', `Define una variable: ${ex('P \\coloneq 50\\,\\mathrm{kN}')} o a partir de otras ${ex('\\sigma \\coloneq \\frac{P}{A}')}`],

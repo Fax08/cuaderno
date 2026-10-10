@@ -10,7 +10,7 @@ import { TextStyle, Color } from '@tiptap/extension-text-style';
 import { Highlight } from '@tiptap/extension-highlight';
 import { Markdown } from 'tiptap-markdown';
 import { resolveAsset } from './fs.js';
-import { MathInline, MathBlock } from './math-nodes.js';
+import { MathInline, MathBlock, mathLock } from './math-nodes.js';
 import { Plot } from './plot-node.js';
 import { engine } from './calc.js';
 
@@ -230,6 +230,9 @@ function createSlashMenu(editor, actions) {
 }
 
 // ---------- barra de herramientas ----------
+const LOCK_ICON = (closed) => `<svg class="tb-lock-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="${closed ? 'M5 7V5a3 3 0 0 1 6 0v2' : 'M5 7V5a3 3 0 0 1 5.8-1'}" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>`;
+const lockLabel = () => (mathLock.locked ? `${LOCK_ICON(true)} Fórmulas bloqueadas` : `${LOCK_ICON(false)} Fórmulas editables`);
+
 function createToolbar(editor, actions) {
   const el = document.createElement('div');
   el.className = 'toolbar';
@@ -265,6 +268,7 @@ function createToolbar(editor, actions) {
       B('eq', '∑ Ecuación', 'Ecuación aparte (Ctrl+Shift+M o $$ + espacio)', () => editor.chain().focus().insertMathBlock().run()),
       B('eqi', 'x² En texto', 'Ecuación dentro del texto (Ctrl+M)', () => editor.chain().focus().insertMathInline().run()),
       B('plot', 'Gráfico', 'Gráfico 2D o 3D', () => editor.chain().focus().insertPlot({ tipo: '2d' }).run()),
+      B('lock', lockLabel(), '', () => { mathLock.set(!mathLock.locked); refresh(); }, () => mathLock.locked),
     ],
     [
       B('undo', '↶', 'Deshacer (Ctrl+Z)', () => editor.chain().focus().undo().run()),
@@ -322,7 +326,12 @@ function createToolbar(editor, actions) {
   document.addEventListener('mousedown', (e) => { if (!palette.hidden && !palette.contains(e.target) && !e.target.closest('[data-id="color"]')) togglePalette(false); });
 
   const tableGroup = el.querySelector('.tb-table');
+  const lockBtn = el.querySelector('[data-id="lock"]');
   function refresh() {
+    lockBtn.innerHTML = lockLabel();
+    lockBtn.title = mathLock.locked
+      ? 'Fórmulas bloqueadas: un clic solo selecciona, doble clic (o Enter) edita. Tocá para desbloquear.'
+      : 'Fórmulas editables: un clic abre la fórmula. Tocá para bloquear.';
     for (const b of all) {
       if (!b.isActive) continue;
       el.querySelector(`[data-id="${b.id}"]`)?.setAttribute('aria-pressed', String(!!b.isActive()));
