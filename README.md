@@ -110,4 +110,10 @@ Publicar en GitHub Pages: `npm run deploy` (compila y sube `dist/` a la rama `gh
 8. ✅ Carpetas libres con plantillas, vocabulario con tarjetas de repaso, gramática
 9. ✅ Búsqueda en todas las notas
 
-Ideas para después: renombrar y borrar desde el árbol, exportar a PDF, integrales y derivadas numéricas, links entre páginas.
+10. ✅ Gráficos con altura ajustable y vista detallada (doble clic)
+
+Pendiente (anotado, sin empezar):
+- **Cubos elementales**: estado tensional en un cubo 3D / elemento plano, principales y Mohr.
+- **Leyes constitutivas**: Hooke generalizada (C y S 6×6), curvas σ–ε de materiales, viscoelasticidad, criterios de falla.
+
+Otras ideas: renombrar y borrar desde el árbol, exportar a PDF, integrales y derivadas numéricas, links entre páginas.
