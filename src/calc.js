@@ -151,6 +151,17 @@ class Conv {
     return null;
   }
 
+  // S' o S^{\prime}: forma parte del nombre (componentes en ejes rotados)
+  readPrime() {
+    const save = this.i;
+    this.skipSpace();
+    if (this.peek() === "'") { this.i++; return true; }
+    const m = /^\^\s*(?:\{\s*\\prime\s*\}|\\prime(?![A-Za-z]))/.exec(this.rest());
+    if (m) { this.i += m[0].length; return true; }
+    this.i = save;
+    return false;
+  }
+
   readDelim() {
     this.skipSpace();
     if (this.peek() === '\\') return `\\${this.readCmd()}`;
@@ -233,15 +244,19 @@ class Conv {
     const ctx = this.ctx;
 
     if (GREEK.has(name)) {
+      const p1 = this.readPrime();
       const sub = this.readSub();
-      if (name === 'pi' && !sub && !ctx.has('pi')) return push({ k: 'val', s: 'pi' });
-      return push(this.varTok(sub ? `${name}_${sub}` : name));
+      const prime = p1 || this.readPrime();
+      if (name === 'pi' && !sub && !prime && !ctx.has('pi')) return push({ k: 'val', s: 'pi' });
+      return push(this.varTok(`${sub ? `${name}_${sub}` : name}${prime ? '_prime' : ''}`));
     }
     if (DECORATORS.has(name)) {
       const inner = cleanSub(this.readArg());
+      const p1 = this.readPrime();
       const sub = this.readSub();
+      const prime = p1 || this.readPrime();
       if (!inner) this.err(`\\${name} vacío`);
-      return push(this.varTok(sub ? `${inner}_${sub}` : inner));
+      return push(this.varTok(`${sub ? `${inner}_${sub}` : inner}${prime ? '_prime' : ''}`));
     }
     if (UPRIGHT.has(name)) {
       const word = this.readArg().replace(/\\[,;: ]/g, '').trim();
@@ -321,8 +336,15 @@ class Conv {
       } else if (/[A-Za-z]/.test(c)) {
         const run = /^[A-Za-z]+/.exec(this.rest())[0];
         this.i += run.length;
+        const p1 = this.readPrime();
         const sub = this.readSub();
-        for (const t of this.resolveRun(run, sub, top())) pushTok(top(), t);
+        const prime = p1 || this.readPrime();
+        const toks = this.resolveRun(run, sub, top());
+        if (prime) {
+          const last = toks.pop();
+          toks.push(this.varTok(`${last.name ?? (sub ? `${run}_${sub}` : run)}_prime`));
+        }
+        for (const t of toks) pushTok(top(), t);
       } else if (c === '\\') {
         this.command(frames);
       } else if (c === '(' || c === '[' || c === '{') {
@@ -380,10 +402,12 @@ class Conv {
       else if (DECORATORS.has(cmd) || UPRIGHT.has(cmd)) name = cleanSub(this.readArg());
     }
     if (!name) this.err('A la izquierda de “:=” tiene que ir un nombre, por ejemplo P o σ_x');
+    const p1 = this.readPrime();
     const sub = this.readSub();
+    const prime = p1 || this.readPrime();
     this.skipSpace();
     if (!this.eof()) this.err('A la izquierda de “:=” tiene que ir un solo nombre');
-    return sub ? `${name}_${sub}` : name;
+    return `${sub ? `${name}_${sub}` : name}${prime ? '_prime' : ''}`;
   }
 }
 
@@ -474,8 +498,9 @@ export function errText(e) {
 
 const GREEK_CHARS = { alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε', zeta: 'ζ', eta: 'η', theta: 'θ', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', upsilon: 'υ', phi: 'φ', varphi: 'φ', chi: 'χ', psi: 'ψ', omega: 'ω', Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Sigma: 'Σ', Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω' };
 export function prettyName(name) {
-  const [base, ...sub] = name.split('_');
-  return (GREEK_CHARS[base] || base) + (sub.length ? `_${sub.join('_')}` : '');
+  const prime = name.endsWith('_prime');
+  const [base, ...sub] = (prime ? name.slice(0, -6) : name).split('_');
+  return (GREEK_CHARS[base] || base) + (prime ? '′' : '') + (sub.length ? `_${sub.join('_')}` : '');
 }
 
 // ---------- sentencias ----------

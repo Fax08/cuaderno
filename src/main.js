@@ -18,6 +18,7 @@ import { createEditor } from './editor.js';
 import { ask, toast, esc } from './ui.js';
 import { scanMateria, resolveDuda, renderMateria, renderInicio } from './dashboard.js';
 import { showHelp } from './help.js';
+import { createSymbolPanel } from './symbols.js';
 
 // ---------- estado ----------
 const ls = {
@@ -76,6 +77,7 @@ document.querySelector('#app').innerHTML = `
 
 const $ = (id) => document.getElementById(id);
 const appEl = document.querySelector('.app');
+createSymbolPanel(document.querySelector('.outline'));
 
 // ---------- editor ----------
 const actions = {
@@ -126,6 +128,7 @@ const editor = createEditor({
   actions,
 });
 $('toolbarSlot').appendChild(editor.toolbarElement);
+window.cuaderno = { editor }; // para depurar desde la consola
 $('imgInput').addEventListener('change', (e) => { [...e.target.files].forEach(actions.insertImageFile); e.target.value = ''; });
 
 // Ctrl+clic abre links

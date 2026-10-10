@@ -50,6 +50,13 @@ const cases = [
   ['F_{1}\\coloneq50N=', '150'], // con N definida, 50N es 50·N (como en MathCad)
   ['F_{2}\\coloneq50\\mathrm{N}=', '150'],
   ['T\\coloneq2s', 'def'],
+  ['S\\coloneq\\begin{bmatrix}1 & 2\\\\ 3 & 4\\end{bmatrix}', 'def'],
+  ["S'\\coloneq S^{\\top}", 'def'],
+  ["\\operatorname{tr}\\left(S'\\right)=", '5'],
+  ['S^{\\prime}=', '\\begin{bmatrix} 1 & 3 \\\\ 2 & 4 \\end{bmatrix}'],
+  ["\\sigma'_{x}\\coloneq3MPa", 'def'],
+  ["2\\sigma'_{x}=", '6\\,\\mathrm{MPa}'],
+  ["z'=", 'error'],
   ['F_{3}\\coloneq50kN\\cdot2m=', '100\\,\\mathrm{kN}{\\cdot}\\mathrm{m}'],
 ];
 for (const [latex, expect] of cases) {

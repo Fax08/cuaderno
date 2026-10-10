@@ -1,11 +1,13 @@
 // Editor de páginas: TipTap + Markdown, menú "/" y barra de herramientas.
-import { Editor } from '@tiptap/core';
+import { Editor, Extension } from '@tiptap/core';
 import StarterKit from '@tiptap/starter-kit';
 import { Image } from '@tiptap/extension-image';
 import { TableKit } from '@tiptap/extension-table';
 import { TaskList, TaskItem } from '@tiptap/extension-list';
 import { Placeholder } from '@tiptap/extensions';
 import { Youtube } from '@tiptap/extension-youtube';
+import { TextStyle, Color } from '@tiptap/extension-text-style';
+import { Highlight } from '@tiptap/extension-highlight';
 import { Markdown } from 'tiptap-markdown';
 import { resolveAsset } from './fs.js';
 import { MathInline, MathBlock } from './math-nodes.js';
@@ -15,6 +17,20 @@ import { engine } from './calc.js';
 // Imagen con ruta relativa a la página: se muestra leyendo el archivo de _assets/.
 function localImage(getPageDir) {
   return Image.extend({
+    // La imagen es un bloque: hay que cerrar la línea para no pegarla al párrafo siguiente
+    addStorage() {
+      return {
+        markdown: {
+          serialize(state, node) {
+            const src = String(node.attrs.src || '').replace(/[()\s]/g, (c) => encodeURIComponent(c));
+            const title = node.attrs.title ? ` "${node.attrs.title.replace(/"/g, '\\"')}"` : '';
+            state.write(`![${state.esc(node.attrs.alt || '')}](${src}${title})`);
+            state.closeBlock(node);
+          },
+          parse: {},
+        },
+      };
+    },
     addNodeView() {
       return ({ node }) => {
         const img = document.createElement('img');
@@ -42,6 +58,23 @@ function localImage(getPageDir) {
   }).configure({ inline: false, allowBase64: true });
 }
 
+// Listas de tareas compactas (sin línea en blanco entre ítems), igual que las otras listas
+const TightTaskLists = Extension.create({
+  name: 'tightTaskLists',
+  addGlobalAttributes() {
+    return [{
+      types: ['taskList'],
+      attributes: {
+        tight: {
+          default: true,
+          parseHTML: (el) => el.getAttribute('data-tight') === 'true' || !el.querySelector('p'),
+          renderHTML: (a) => ({ 'data-tight': a.tight ? 'true' : null }),
+        },
+      },
+    }];
+  },
+});
+
 export function createEditor({ element, getPageDir, onChange, actions }) {
   const editor = new Editor({
     element,
@@ -54,7 +87,11 @@ export function createEditor({ element, getPageDir, onChange, actions }) {
       TableKit.configure({ table: { resizable: false } }),
       TaskList,
       TaskItem.configure({ nested: true }),
+      TightTaskLists,
       Youtube.configure({ nocookie: true, width: 640, height: 360 }),
+      TextStyle,
+      Color,
+      Highlight.configure({ multicolor: true }),
       MathInline,
       MathBlock,
       Plot,
@@ -210,6 +247,7 @@ function createToolbar(editor, actions) {
       B('i', '<i>I</i>', 'Cursiva (Ctrl+I)', () => editor.chain().focus().toggleItalic().run(), () => editor.isActive('italic')),
       B('s', '<s>S</s>', 'Tachado', () => editor.chain().focus().toggleStrike().run(), () => editor.isActive('strike')),
       B('code', '&lt;/&gt;', 'Código en línea', () => editor.chain().focus().toggleCode().run(), () => editor.isActive('code')),
+      B('color', '<span class="tb-color">A</span><span class="tb-caret">▾</span>', 'Color de letra y resaltado', () => togglePalette(), () => editor.isActive('textStyle', {}) && !!editor.getAttributes('textStyle').color),
     ],
     [
       B('ul', '• Lista', 'Lista con viñetas', () => editor.chain().focus().toggleBulletList().run(), () => editor.isActive('bulletList')),
@@ -250,6 +288,39 @@ function createToolbar(editor, actions) {
     const b = e.target.closest('.tb');
     if (b) all.find((x) => x.id === b.dataset.id)?.run();
   });
+  // Paleta de colores: usa variables CSS para que se vean bien en tema claro y oscuro
+  const palette = document.createElement('div');
+  palette.className = 'tb-palette';
+  palette.hidden = true;
+  const TEXT = [['', 'Automático'], ['var(--tc-rojo)', 'Rojo'], ['var(--tc-naranja)', 'Naranja'], ['var(--tc-verde)', 'Verde'], ['var(--tc-azul)', 'Azul'], ['var(--tc-violeta)', 'Violeta'], ['var(--tc-gris)', 'Gris']];
+  const MARK = [['', 'Sin resaltado'], ['var(--hl-amarillo)', 'Amarillo'], ['var(--hl-verde)', 'Verde'], ['var(--hl-celeste)', 'Celeste'], ['var(--hl-rosa)', 'Rosa']];
+  palette.innerHTML = `<div class="pal-row"><span class="pal-label">Letra</span>${TEXT.map(([c, n]) => `<button type="button" class="pal-sw${c ? '' : ' none'}" data-text="${c}" title="${n}" style="${c ? `color:${c}` : ''}">A</button>`).join('')}</div>
+    <div class="pal-row"><span class="pal-label">Resaltado</span>${MARK.map(([c, n]) => `<button type="button" class="pal-sw mark${c ? '' : ' none'}" data-mark="${c}" title="${n}" style="${c ? `background:${c}` : ''}">${c ? '' : '∅'}</button>`).join('')}</div>`;
+  el.appendChild(palette);
+  function togglePalette(force) {
+    const open = force ?? palette.hidden;
+    palette.hidden = !open;
+    if (open) {
+      const b = el.querySelector('[data-id="color"]');
+      palette.style.left = `${b.offsetLeft}px`;
+      palette.style.top = `${b.offsetTop + b.offsetHeight + 4}px`;
+    }
+  }
+  palette.addEventListener('mousedown', (e) => e.preventDefault());
+  palette.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-text]');
+    const m = e.target.closest('[data-mark]');
+    if (t) {
+      const c = t.dataset.text;
+      if (c) editor.chain().focus().setColor(c).run(); else editor.chain().focus().unsetColor().run();
+    } else if (m) {
+      const c = m.dataset.mark;
+      if (c) editor.chain().focus().setHighlight({ color: c }).run(); else editor.chain().focus().unsetHighlight().run();
+    } else return;
+    togglePalette(false);
+  });
+  document.addEventListener('mousedown', (e) => { if (!palette.hidden && !palette.contains(e.target) && !e.target.closest('[data-id="color"]')) togglePalette(false); });
+
   const tableGroup = el.querySelector('.tb-table');
   function refresh() {
     for (const b of all) {
