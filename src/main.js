@@ -16,6 +16,8 @@ import {
 import { SECTIONS, ESTADOS, today, splitFrontmatter, joinFrontmatter, tpl } from './templates.js';
 import { createEditor } from './editor.js';
 import { ask, toast, esc } from './ui.js';
+import { scanMateria, resolveDuda, renderMateria, renderInicio } from './dashboard.js';
+import { showHelp } from './help.js';
 
 // ---------- estado ----------
 const ls = {
@@ -38,6 +40,7 @@ document.querySelector('#app').innerHTML = `
     <div class="side-head">
       <div class="brand">Cuaderno</div>
       <div class="folder" id="folderName" title="Carpeta de notas"></div>
+      <button type="button" class="nav-home" id="goHome">Inicio</button>
     </div>
     <nav class="tree" id="tree"></nav>
     <div class="side-foot">
@@ -60,16 +63,7 @@ document.querySelector('#app').innerHTML = `
         <div class="props" id="props"></div>
         <div id="editor"></div>
       </article>
-      <section class="empty" id="empty">
-        <h1>Tu cuaderno de posgrado</h1>
-        <p>Elegí una página a la izquierda o creá una materia nueva. Cada materia trae <b>Clases</b>, <b>Dudas</b>, <b>Temario</b> y <b>Trabajos</b>.</p>
-        <ul class="tips">
-          <li><kbd>/</kbd> abre el menú para insertar títulos, tablas, imágenes, videos y más.</li>
-          <li><kbd>#</kbd> <kbd>##</kbd> <kbd>###</kbd> + espacio crean Títulos 1, 2 y 3. El índice aparece a la derecha.</li>
-          <li><kbd>Ctrl</kbd>+<kbd>V</kbd> pega capturas de pantalla directo en la página.</li>
-          <li>Todo se guarda solo, como archivos <code>.md</code> en tu carpeta.</li>
-        </ul>
-      </section>
+      <section class="dash" id="dash" hidden></section>
     </div>
   </main>
   <aside class="outline" aria-label="Índice">
@@ -116,6 +110,7 @@ const actions = {
       editor.chain().focus().setTextSelection({ from, to }).extendMarkRange('link').setLink({ href: url }).run();
     }
   },
+  showHelp,
 };
 
 const editor = createEditor({
@@ -210,8 +205,67 @@ async function start(root) {
   $('folderName').textContent = root.name;
   await refreshTree();
   const last = ls.get('cuaderno.last', null);
-  if (last && findNode(last)) openPage(last);
+  if (Array.isArray(last) && last[0] === '@materia' && findNode([last[1]])) showMateria([last[1]]);
+  else if (Array.isArray(last) && last[0] !== '@inicio' && findNode(last)) openPage(last);
+  else showInicio();
 }
+
+// ---------- Inicio y portada de materia ----------
+const dash = { open: [], rerender: null };
+
+async function closePage() {
+  await save();
+  S.page = null;
+  $('pageWrap').hidden = true;
+  $('toolbarSlot').hidden = true;
+  $('outline').innerHTML = '';
+  setStatus('');
+}
+
+async function showDash(kind, path) {
+  await closePage();
+  const el = $('dash');
+  el.hidden = false;
+  el.innerHTML = '<p class="dash-loading">Leyendo la carpeta…</p>';
+  $('scroller').scrollTop = 0;
+  try {
+    if (kind === 'materia') {
+      const node = findNode(path);
+      if (!node) return showInicio();
+      dash.open = renderMateria(el, await scanMateria(node));
+      dash.rerender = () => showMateria(path);
+      $('crumbs').innerHTML = `<span class="here">${esc(path[0])}</span>`;
+      document.title = `${path[0]} · Cuaderno`;
+      ls.set('cuaderno.last', ['@materia', path[0]]);
+    } else {
+      const materias = S.tree.children.filter((c) => c.kind === 'dir');
+      dash.open = renderInicio(el, await Promise.all(materias.map(scanMateria)));
+      dash.rerender = showInicio;
+      $('crumbs').innerHTML = '<span class="here">Inicio</span>';
+      document.title = 'Cuaderno';
+      ls.set('cuaderno.last', ['@inicio']);
+    }
+  } catch (e) {
+    el.innerHTML = `<p class="dash-loading">No se pudo leer la carpeta: ${esc(e.message)}</p>`;
+  }
+  renderTree();
+}
+const showInicio = () => showDash('inicio');
+const showMateria = (path) => showDash('materia', path);
+
+$('dash').addEventListener('click', async (e) => {
+  const o = e.target.closest('[data-open]');
+  if (o) { openPage(o.dataset.open.split('/')); return; }
+  const r = e.target.closest('[data-resolve]');
+  if (r) {
+    try {
+      await resolveDuda(dash.open[Number(r.dataset.resolve)]);
+      toast('Duda marcada como resuelta.');
+      dash.rerender?.();
+    } catch (err) { toast(err.message, 'bad'); }
+  }
+});
+$('goHome').addEventListener('click', () => showInicio());
 
 // ---------- árbol ----------
 async function refreshTree() {
@@ -270,7 +324,7 @@ function renderTree() {
         const [act, txt] = sectionAction(s.name, 0);
         return `<div class="section"><div class="sec-head"><span class="sec-name">${esc(s.name)}</span><button type="button" class="add" data-act="${act}" data-path="${P(s.path)}" title="${txt}">+</button></div>${renderDirBody(s, s.name, 0)}</div>`;
       }).join('');
-    html += details(m.path.join('/'), `<span class="sum-name">${esc(m.name)}</span>`, inner, 'materia');
+    html += details(m.path.join('/'), `<span class="sum-name">${esc(m.name)}</span><button type="button" class="add home" data-home="${P(m.path)}" title="Portada: entregas, dudas y clases">⌂</button>`, inner, 'materia');
   }
   if (!materias.length) html = '<p class="none pad">Todavía no hay materias. Creá la primera con el botón de abajo.</p>';
   $('tree').innerHTML = html;
@@ -284,6 +338,8 @@ $('tree').addEventListener('toggle', (e) => {
 }, true);
 
 $('tree').addEventListener('click', (e) => {
+  const home = e.target.closest('[data-home]');
+  if (home) { e.preventDefault(); e.stopPropagation(); showMateria(home.dataset.home.split('/')); return; }
   const add = e.target.closest('.add');
   if (add) { e.preventDefault(); e.stopPropagation(); create(add.dataset.act, add.dataset.path.split('/')); return; }
   const link = e.target.closest('[data-open]');
@@ -355,6 +411,7 @@ $('newMateria').addEventListener('click', async () => {
     ls.set('cuaderno.open', [...S.open]);
     await refreshTree();
     toast(`Materia “${name}” creada.`);
+    showMateria([name]);
   } catch (e) { toast(e.message, 'bad'); }
 });
 
@@ -381,10 +438,11 @@ async function openPage(path) {
     // historial de deshacer limpio para cada página
     const st = editor.state;
     editor.view.updateState(EditorState.create({ doc: st.doc, plugins: st.plugins }));
+    editor.runCalc();
     S.loading = false;
     S.dirty = false;
     $('pageWrap').hidden = false;
-    $('empty').hidden = true;
+    $('dash').hidden = true;
     $('toolbarSlot').hidden = false;
     $('scroller').scrollTop = 0;
     renderProps();

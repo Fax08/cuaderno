@@ -8,6 +8,9 @@ import { Placeholder } from '@tiptap/extensions';
 import { Youtube } from '@tiptap/extension-youtube';
 import { Markdown } from 'tiptap-markdown';
 import { resolveAsset } from './fs.js';
+import { MathInline, MathBlock } from './math-nodes.js';
+import { Plot } from './plot-node.js';
+import { engine } from './calc.js';
 
 // Imagen con ruta relativa a la página: se muestra leyendo el archivo de _assets/.
 function localImage(getPageDir) {
@@ -52,6 +55,9 @@ export function createEditor({ element, getPageDir, onChange, actions }) {
       TaskList,
       TaskItem.configure({ nested: true }),
       Youtube.configure({ nocookie: true, width: 640, height: 360 }),
+      MathInline,
+      MathBlock,
+      Plot,
       Placeholder.configure({ placeholder: 'Escribí, o tocá / para insertar un título, tabla, imagen…' }),
       Markdown.configure({ html: true, tightLists: true, bulletListMarker: '-', linkify: true, transformPastedText: true }),
     ],
@@ -80,6 +86,11 @@ export function createEditor({ element, getPageDir, onChange, actions }) {
   const slash = createSlashMenu(editor, actions);
   const toolbar = createToolbar(editor, actions);
 
+  // Recalcula las ecuaciones (variables, resultados y gráficos) cuando cambia la página.
+  let calcTimer;
+  editor.runCalc = () => { clearTimeout(calcTimer); engine.run(editor.state.doc); };
+  editor.on('update', () => { clearTimeout(calcTimer); calcTimer = setTimeout(() => engine.run(editor.state.doc), 120); });
+
   editor.getMarkdown = () => editor.storage.markdown.getMarkdown();
   editor.toolbarElement = toolbar.element;
   return editor;
@@ -92,6 +103,10 @@ function blockCommands(actions) {
     { id: 'h2', label: 'Título 2', hint: '##', keys: 'titulo 2 h2 subtitulo', run: (c) => c.setHeading({ level: 2 }) },
     { id: 'h3', label: 'Título 3', hint: '###', keys: 'titulo 3 h3', run: (c) => c.setHeading({ level: 3 }) },
     { id: 'p', label: 'Texto', hint: '', keys: 'texto parrafo normal', run: (c) => c.setParagraph() },
+    { id: 'eq', label: 'Ecuación', hint: '$$', keys: 'ecuacion formula math calculo latex variable', run: (c) => c.insertMathBlock() },
+    { id: 'eqi', label: 'Ecuación en el texto', hint: 'Ctrl+M', keys: 'ecuacion en linea inline formula math', run: (c) => c.insertMathInline() },
+    { id: 'plot2', label: 'Gráfico 2D', hint: 'y(x)', keys: 'grafico plot funcion curva 2d', run: (c) => c.insertPlot({ tipo: '2d' }) },
+    { id: 'plot3', label: 'Gráfico 3D', hint: 'z(x,y)', keys: 'grafico plot superficie 3d', run: (c) => c.insertPlot({ tipo: '3d', xmin: '-3', xmax: '3', ymin: '-3', ymax: '3' }) },
     { id: 'ul', label: 'Lista', hint: '-', keys: 'lista viñetas bullet', run: (c) => c.toggleBulletList() },
     { id: 'ol', label: 'Lista numerada', hint: '1.', keys: 'lista numerada ordenada', run: (c) => c.toggleOrderedList() },
     { id: 'todo', label: 'Lista de tareas', hint: '[ ]', keys: 'tareas checklist todo duda', run: (c) => c.toggleTaskList() },
@@ -209,8 +224,14 @@ function createToolbar(editor, actions) {
       B('table', 'Tabla', 'Insertar tabla', () => editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run(), () => editor.isActive('table')),
     ],
     [
+      B('eq', '∑ Ecuación', 'Ecuación aparte (Ctrl+Shift+M o $$ + espacio)', () => editor.chain().focus().insertMathBlock().run()),
+      B('eqi', 'x² En texto', 'Ecuación dentro del texto (Ctrl+M)', () => editor.chain().focus().insertMathInline().run()),
+      B('plot', 'Gráfico', 'Gráfico 2D o 3D', () => editor.chain().focus().insertPlot({ tipo: '2d' }).run()),
+    ],
+    [
       B('undo', '↶', 'Deshacer (Ctrl+Z)', () => editor.chain().focus().undo().run()),
       B('redo', '↷', 'Rehacer (Ctrl+Y)', () => editor.chain().focus().redo().run()),
+      B('help', '?', 'Atajos y cómo calcular', () => actions.showHelp()),
     ],
   ];
   const tableOps = [
