@@ -108,7 +108,8 @@ export async function saveAsset(pageDir, file) {
   const assets = await pageDir.getDirectoryHandle('_assets', { create: true });
   const ext = (file.name && file.name.includes('.')) ? file.name.split('.').pop().toLowerCase() : (file.type.split('/')[1] || 'png');
   const stem = (file.name ? file.name.replace(/\.[^.]+$/, '') : 'imagen').replace(/[^\w-]+/g, '-').slice(0, 40) || 'imagen';
-  const name = `${Date.now().toString(36)}-${stem}.${ext}`;
+  const rnd = Math.random().toString(36).slice(2, 6);
+  const name = `${Date.now().toString(36)}-${rnd}-${stem}.${ext}`;
   const fh = await assets.getFileHandle(name, { create: true });
   const w = await fh.createWritable();
   await w.write(file);

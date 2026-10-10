@@ -66,7 +66,11 @@ export function markdownItMath(md) {
 
 export const PLOT_DEFAULTS = {
   tipo: '2d', titulo: '', exprs: [''], xmin: '0', xmax: '10', ymin: '0', ymax: '10',
+  // opciones de la vista detallada (solo se guardan si cambian)
+  alto: '340', xlabel: '', ylabel: '', zlabel: '', ylo: '', yhi: '', zlo: '', zhi: '',
+  puntos: '', grilla: 'si', leyenda: 'si', escala: 'Viridis', camara: '',
 };
+const OPTIONAL = ['alto', 'xlabel', 'ylabel', 'zlabel', 'ylo', 'yhi', 'zlo', 'zhi', 'puntos', 'grilla', 'leyenda', 'escala', 'camara'];
 
 export function parsePlotSource(src) {
   const a = { ...PLOT_DEFAULTS, exprs: [] };
@@ -88,6 +92,7 @@ export function serializePlot(a) {
   a.exprs.filter((e) => e.trim()).forEach((e) => lines.push(`f: ${e}`));
   lines.push(`xmin: ${a.xmin}`, `xmax: ${a.xmax}`);
   if (a.tipo === '3d') lines.push(`ymin: ${a.ymin}`, `ymax: ${a.ymax}`);
+  for (const k of OPTIONAL) if (a[k] !== undefined && String(a[k]) !== PLOT_DEFAULTS[k]) lines.push(`${k}: ${a[k]}`);
   return lines.join('\n');
 }
 

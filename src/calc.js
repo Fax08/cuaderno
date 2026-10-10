@@ -649,7 +649,7 @@ export function samplePlot(spec, ctx) {
   if (spec.tipo === '3d') {
     const [c, d] = matchUnits(evalText(spec.ymin || '0', ctx), evalText(spec.ymax || '10', ctx));
     const yUnit = math.isUnit(d) ? displayUnit(d) : null;
-    const N = 46;
+    const N = Math.min(150, Math.max(10, parseInt(spec.puntos, 10) || 46));
     const xs = range(a, b, N), ys = range(c, d, N);
     const f = makeFn(spec.exprs[0] || '0', ctx, ['x', 'y']);
     let zUnit = null, firstErr = null, ok = 0;
@@ -665,7 +665,7 @@ export function samplePlot(spec, ctx) {
     if (!ok) throw firstErr || new CalcError('La función no da valores en ese rango');
     return { tipo: '3d', x: xs.map((x) => toNum(x, xUnit)), y: ys.map((y) => toNum(y, yUnit)), z, xUnit, yUnit, zUnit };
   }
-  const N = 241;
+  const N = Math.min(3000, Math.max(20, parseInt(spec.puntos, 10) || 241));
   const xs = range(a, b, N);
   let yUnit = null;
   const traces = (spec.exprs.length ? spec.exprs : ['0']).map((latex) => {
