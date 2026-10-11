@@ -16,6 +16,7 @@ export function parseCards(text, page) {
   const cards = [];
   for (let i = 0; i < lines.length - 1; i++) {
     if (!/^\s*\|.*\|\s*$/.test(lines[i]) || !/^\s*\|(\s*:?-{3,}:?\s*\|)+\s*$/.test(lines[i + 1])) continue;
+    if (/^\s*\|\s*pronombre/i.test(lines[i])) { i += 1; continue; } // tabla de conjugación, no tarjetas
     let j = i + 2;
     for (; j < lines.length && /^\s*\|.*\|\s*$/.test(lines[j]); j++) {
       const cells = lines[j].trim().replace(/^\||\|$/g, '').split(/(?<!\\)\|/).map(clean);

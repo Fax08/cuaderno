@@ -100,7 +100,7 @@ function tableInfo(state, cellPos) {
   const heads = [];
   head.forEach((c) => heads.push(c.textContent.trim()));
   const col = $c.index();
-  const tradCol = Math.max(heads.findIndex((h) => TRAD_HEAD.test(h)), 1);
+  const tradCol = heads.findIndex((h) => TRAD_HEAD.test(h));
   const noteCol = heads.findIndex((h) => NOTE_HEAD.test(h));
   const cellAt = (i) => {
     if (i < 0 || i >= row.childCount) return null;
@@ -115,6 +115,7 @@ async function fillRow(view, cellPos, pair) {
   let info = tableInfo(view.state, cellPos);
   if (!info || info.isHeader || info.col !== 0) return false;
   const word = info.cell.textContent.trim();
+  if (info.tradCol < 1) return false; // sin columna "Traducción" (p. ej. tabla de pronombres)
   const target = info.cellAt(info.tradCol);
   if (!word || !target || target.node.textContent.trim()) return false;
   const r = await translateWord(word, pair);

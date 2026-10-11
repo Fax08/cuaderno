@@ -16,6 +16,7 @@ import { Spellcheck, spell, spellPanelHTML, showPersonalDictionary } from './spe
 import { createTranslate, translateSelection } from './translate-ext.js';
 import { showGoogleKeyDialog } from './google-key.js';
 import { Toggle, ToggleSummary, ToggleContent } from './details.js';
+import { createPronTable } from './pron-table.js';
 import { PAIRS, pairLabel, googleKey } from './translate.js';
 import { engine } from './calc.js';
 
@@ -94,6 +95,7 @@ export function createEditor({ element, getPageDir, onChange, actions, getPair =
       TaskItem.configure({ nested: true }),
       TightTaskLists,
       Toggle,
+      createPronTable({ getPair, notify: (m, k) => actions.notify(m, k) }),
       ToggleSummary,
       ToggleContent,
       Spellcheck,
@@ -134,7 +136,7 @@ export function createEditor({ element, getPageDir, onChange, actions, getPair =
     onTransaction: () => { slash.check(); toolbar.refresh(); },
   });
 
-  const slash = createSlashMenu(editor, actions);
+  const slash = createSlashMenu(editor, actions, getPair);
   const toolbar = createToolbar(editor, actions, getPair);
 
   // Recalcula las ecuaciones (variables, resultados y gráficos) cuando cambia la página.
@@ -148,7 +150,8 @@ export function createEditor({ element, getPageDir, onChange, actions, getPair =
 }
 
 // ---------- comandos compartidos por el menú "/" y la barra ----------
-function blockCommands(actions) {
+function blockCommands(actions, getPair = () => null) {
+  const german = () => { const p = getPair(); return !!(p && p.includes('de')); };
   return [
     { id: 'h1', label: 'Título 1', hint: '#', keys: 'titulo 1 h1 heading', run: (c) => c.setHeading({ level: 1 }) },
     { id: 'h2', label: 'Título 2', hint: '##', keys: 'titulo 2 h2 subtitulo', run: (c) => c.setHeading({ level: 2 }) },
@@ -164,6 +167,7 @@ function blockCommands(actions) {
     { id: 'toggle', label: 'Desplegable (toggle)', hint: '/t', keys: 't toggle desplegable plegable acordeon seccion', run: (c) => c.insertToggle() },
     { id: 'quote', label: 'Cita', hint: '>', keys: 'cita quote destacado', run: (c) => c.toggleBlockquote() },
     { id: 'code', label: 'Bloque de código', hint: '```', keys: 'codigo code', run: (c) => c.toggleCodeBlock() },
+    { id: 'pron', label: 'Tabla de pronombres (alemán)', hint: '/tabla_pron', keys: 'tabla pronombres conjugacion verbo aleman ich du', when: german, run: (c) => c.insertPronounTable(1) },
     { id: 'table', label: 'Tabla', hint: '3×3', keys: 'tabla table', run: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }) },
     { id: 'img', label: 'Imagen', hint: 'archivo', keys: 'imagen foto figura', run: (c) => { c.run(); actions.pickImage(); return null; } },
     { id: 'video', label: 'Video de YouTube', hint: 'link', keys: 'video youtube', run: (c) => { c.run(); actions.askVideo(); return null; } },
@@ -173,8 +177,8 @@ function blockCommands(actions) {
 }
 
 // ---------- menú "/" ----------
-function createSlashMenu(editor, actions) {
-  const items = blockCommands(actions);
+function createSlashMenu(editor, actions, getPair) {
+  const items = blockCommands(actions, getPair);
   const el = document.createElement('div');
   el.className = 'slash-menu';
   el.hidden = true;
@@ -217,7 +221,7 @@ function createSlashMenu(editor, actions) {
     const m = /(?:^|\s)\/([\p{L}\d ]{0,20})$/u.exec(before);
     if (!m || m[1].endsWith('  ')) return close();
     const q = norm(m[1].trim());
-    filtered = items.filter((it) => !q || norm(`${it.label} ${it.keys}`).includes(q));
+    filtered = items.filter((it) => (!it.when || it.when()) && (!q || norm(`${it.label} ${it.keys}`).includes(q)));
     if (!open) index = 0;
     index = Math.min(index, Math.max(filtered.length - 1, 0));
     range = { from: $from.pos - m[1].length - 1, to: $from.pos };

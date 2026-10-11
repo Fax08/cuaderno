@@ -13,6 +13,7 @@ const SECTIONS = [
   ['Insertar', [
     ['<kbd>/</kbd>', 'Menú para insertar: títulos, ecuación, gráfico, tabla, imagen, video…'],
     ['<code>/t</code> + espacio', 'Desplegable (toggle): escribí el título y Enter para escribir adentro. Dos Enter en un renglón vacío salen del desplegable. La flechita lo abre y lo cierra.'],
+    ['<code>/tabla_pron</code>', 'Solo en páginas de alemán: tabla centrada con los pronombres (ich, du, er / sie / es…) y una columna para la conjugación. <code>/tabla_pron_2</code> (hasta _5) agrega más columnas.'],
     ['<b>A▾</b> en la barra', 'Color de letra y resaltado del texto seleccionado.'],
     ['<b>abc▾</b> en la barra', 'Ortografía: prenderla o apagarla y elegir idiomas (español siempre; inglés y alemán opcionales). Clic derecho sobre una palabra subrayada para ver sugerencias o agregarla al diccionario personal.'],
     ['<kbd>Ctrl</kbd>+<kbd>M</kbd>', 'Ecuación dentro del texto. También escribiendo <code>$x^2$</code>.'],
