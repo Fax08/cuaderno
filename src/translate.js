@@ -75,11 +75,14 @@ export const translator = {
       try { const g = await google(text, from, to); if (g) return g; } catch { /* sigue con MyMemory */ }
       try { return await mymemory(text, from, to, true); } catch { return null; }
     }
-    // Palabras: acepciones de Wiktionary + la traducción más usada (Google o MyMemory)
+    // Palabras: primero lo gratuito (acepciones de Wiktionary + la más usada de MyMemory);
+    // Google solo si ninguno de los dos encontró nada
     let w = null, m = null;
     try { w = await wiktionary(text, from, to); } catch { w = null; }
-    try { m = await google(text, from, to); } catch { m = null; }
-    if (!m) { try { m = await mymemory(text, from, to); } catch { m = null; } }
+    try { m = await mymemory(text, from, to); } catch { m = null; }
+    if (!(w && w.main) && !(m && m.main)) {
+      try { return await google(text, from, to); } catch { return null; }
+    }
     if (w && w.main && m && m.main) {
       const all = [w.main, ...w.alts];
       const hit = all.find((x) => x.toLowerCase() === m.main.toLowerCase());

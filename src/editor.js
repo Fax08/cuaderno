@@ -15,6 +15,7 @@ import { Plot } from './plot-node.js';
 import { Spellcheck, spell, spellPanelHTML, showPersonalDictionary } from './spell.js';
 import { createTranslate, translateSelection } from './translate-ext.js';
 import { showGoogleKeyDialog } from './google-key.js';
+import { Toggle, ToggleSummary, ToggleContent } from './details.js';
 import { PAIRS, pairLabel, googleKey } from './translate.js';
 import { engine } from './calc.js';
 
@@ -92,6 +93,9 @@ export function createEditor({ element, getPageDir, onChange, actions, getPair =
       TaskList,
       TaskItem.configure({ nested: true }),
       TightTaskLists,
+      Toggle,
+      ToggleSummary,
+      ToggleContent,
       Spellcheck,
       createTranslate({ getPair, notify: (m, k) => actions.notify(m, k) }),
       Youtube.configure({ nocookie: true, width: 640, height: 360 }),
@@ -101,7 +105,10 @@ export function createEditor({ element, getPageDir, onChange, actions, getPair =
       MathInline,
       MathBlock,
       Plot,
-      Placeholder.configure({ placeholder: 'Escribí, o tocá / para insertar un título, tabla, imagen…' }),
+      Placeholder.configure({
+        includeChildren: true,
+        placeholder: ({ node }) => (node.type.name === 'detailsSummary' ? 'Título del desplegable (Enter para escribir adentro)' : 'Escribí, o tocá / para insertar un título, tabla, imagen…'),
+      }),
       Markdown.configure({ html: true, tightLists: true, bulletListMarker: '-', linkify: true, transformPastedText: true }),
     ],
     editorProps: {
@@ -154,6 +161,7 @@ function blockCommands(actions) {
     { id: 'ul', label: 'Lista', hint: '-', keys: 'lista viñetas bullet', run: (c) => c.toggleBulletList() },
     { id: 'ol', label: 'Lista numerada', hint: '1.', keys: 'lista numerada ordenada', run: (c) => c.toggleOrderedList() },
     { id: 'todo', label: 'Lista de tareas', hint: '[ ]', keys: 'tareas checklist todo duda', run: (c) => c.toggleTaskList() },
+    { id: 'toggle', label: 'Desplegable (toggle)', hint: '/t', keys: 't toggle desplegable plegable acordeon seccion', run: (c) => c.insertToggle() },
     { id: 'quote', label: 'Cita', hint: '>', keys: 'cita quote destacado', run: (c) => c.toggleBlockquote() },
     { id: 'code', label: 'Bloque de código', hint: '```', keys: 'codigo code', run: (c) => c.toggleCodeBlock() },
     { id: 'table', label: 'Tabla', hint: '3×3', keys: 'tabla table', run: (c) => c.insertTable({ rows: 3, cols: 3, withHeaderRow: true }) },
