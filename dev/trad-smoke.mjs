@@ -29,6 +29,8 @@ hallo:.
 
 tensión:
 
+Die erste Stunde im Kurs:.
+
 | Palabra | Traducción | Ejemplo | Notas |
 | --- | --- | --- | --- |
 | Verformung |  |  |  |
@@ -42,7 +44,7 @@ tensión:
   localStorage.setItem('cuaderno.last', JSON.stringify(['Alemán', 'Vocabulario', 'Clase 1.md']));
 });
 await page.reload({ waitUntil: 'networkidle0' });
-await page.waitForFunction(() => document.querySelectorAll('.trad-ghost[data-ready]').length >= 2, { timeout: 30000 }).catch(() => {});
+await page.waitForFunction(() => document.querySelectorAll('.trad-ghost[data-ready]').length >= 3, { timeout: 30000 }).catch(() => {});
 await new Promise((r) => setTimeout(r, 2500));
 console.log('SUBRAYADAS EN PÁGINA ALEMANA:', await page.$$eval('.spell-err', (els) => els.map((e) => e.textContent)));
 console.log('PROPIEDAD AUTOMÁTICA:', await page.$eval('[data-trad-auto]', (s) => s.options[s.selectedIndex].text).catch(() => 'no aparece'));

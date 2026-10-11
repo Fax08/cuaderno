@@ -10,17 +10,24 @@ import { translator } from './translate.js';
 import { spell } from './spell.js';
 
 const key = new PluginKey('translate');
-const TRIGGER = /^\s*(\p{L}[\p{L}'’\- ]{0,48}?)\s*:[\s.…·]*$/u;
+// "hallo:" o una oración corta "Die erste Stunde im Kurs:" (hasta MAX_WORDS palabras)
+const TRIGGER = /^\s*([¿¡]?\p{L}[\p{L}\p{N}'’\-,;¿?¡! ]{0,160}?)\s*:[\s.…·]*$/u;
+const MAX_WORDS = 15;
 const WORD_HEAD = /^(palabra|word|wort|t[ée]rmino|vocablo|expresi[óo]n)/i;
 const TRAD_HEAD = /^(traducci[óo]n|translation|übersetzung|significado)/i;
 const NOTE_HEAD = /^(notas?|notes?|g[ée]nero)/i;
 const rescans = new Set();
 export const rescanTranslations = () => rescans.forEach((fn) => fn(0));
 
-// Dirección para una palabra: si está escrita en español en una página de-es, se traduce es→de
+// Dirección: si el texto está en español en una página de-es, se traduce es→de
 async function direction(word, pair) {
   const [from, to] = pair;
   if (from === 'es' || to !== 'es') return pair;
+  if (/\s/.test(word.trim())) {
+    // Oración: gana el idioma con más palabras válidas
+    const lang = await detectLang(word, [from, 'es']);
+    return lang === 'es' ? [to, from] : pair;
+  }
   try {
     // Una palabra válida en los dos idiomas (p. ej. "hallo") se traduce en la dirección de la página
     const w = await spell.which(word, [from, 'es']);
@@ -206,7 +213,7 @@ export function createTranslate({ getPair, notify }) {
                 if (node.type.name === 'table' || node.type.name === 'heading' || node.type.name === 'codeBlock') return false;
                 if (!node.isTextblock) return true;
                 const m = TRIGGER.exec(node.textContent);
-                if (m && m[1].trim().split(/\s+/).length <= 4) found.push({ text: m[1].trim(), end: pos + node.nodeSize - 1, full: node.textContent });
+                if (m && m[1].trim().split(/\s+/).length <= MAX_WORDS) found.push({ text: m[1].trim(), end: pos + node.nodeSize - 1, full: node.textContent });
                 return false;
               });
             }
