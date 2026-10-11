@@ -83,5 +83,29 @@ await page.screenshot({ path: `${shots}/trad-2.png` });
 await wait(1500);
 const cache = await page.evaluate(async () => { const r = await navigator.storage.getDirectory(); const t = await r.getDirectoryHandle('Notas'); try { return Object.keys(JSON.parse(await (await (await t.getFileHandle('.traducciones.json')).getFile()).text())); } catch { return 'no existe'; } });
 console.log('GUARDADAS EN .traducciones.json:', cache);
+// Oración: seleccionar + Alt+T
+await page.evaluate(() => {
+  const ed = window.cuaderno.editor;
+  ed.chain().focus('end').insertContent('<p>Ich verstehe die Spannung im Träger nicht.</p>').run();
+  let range = null;
+  ed.state.doc.descendants((n, pos) => { if (!range && n.isTextblock && n.textContent.startsWith('Ich verstehe')) range = { from: pos + 1, to: pos + 1 + n.textContent.length }; return !range; });
+  ed.chain().focus().setTextSelection(range).run();
+});
+await page.keyboard.down('Alt'); await page.keyboard.press('t'); await page.keyboard.up('Alt');
+await page.waitForFunction(() => /Ich verstehe[^\n]*\n\n\*[^*]+\*/.test(window.cuaderno.editor.getMarkdown()), { timeout: 30000 }).catch(() => {});
+const lines = (await md()).split('\n');
+const i = lines.findIndex((l) => l.startsWith('Ich verstehe'));
+console.log('ORACIÓN TRADUCIDA (Alt+T):', lines.slice(i, i + 3).filter(Boolean));
+
+// Conectar Google con una clave falsa: el error tiene que ser claro
+await page.click('[data-id="spell"]');
+await wait(200);
+await page.click('[data-google]');
+await wait(300);
+await page.type('#gkInput', 'AIzaClaveDePruebaQueNoExiste123');
+await page.click('.google-key [data-test]');
+await page.waitForFunction(() => { const s = document.querySelector('#gkStatus'); return s && s.textContent && s.textContent !== 'Probando…'; }, { timeout: 20000 }).catch(() => {});
+console.log('CLAVE FALSA →', await page.$eval('#gkStatus', (s) => s.textContent));
+await page.screenshot({ path: `${shots}/google-key.png` });
 console.log('PROBLEMAS:', problems.length ? problems : 'ninguno');
 await browser.close();

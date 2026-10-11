@@ -13,8 +13,9 @@ import { resolveAsset } from './fs.js';
 import { MathInline, MathBlock, mathLock } from './math-nodes.js';
 import { Plot } from './plot-node.js';
 import { Spellcheck, spell, spellPanelHTML, showPersonalDictionary } from './spell.js';
-import { createTranslate } from './translate-ext.js';
-import { PAIRS, pairLabel } from './translate.js';
+import { createTranslate, translateSelection } from './translate-ext.js';
+import { showGoogleKeyDialog } from './google-key.js';
+import { PAIRS, pairLabel, googleKey } from './translate.js';
 import { engine } from './calc.js';
 
 // Imagen con ruta relativa a la página: se muestra leyendo el archivo de _assets/.
@@ -92,7 +93,7 @@ export function createEditor({ element, getPageDir, onChange, actions, getPair =
       TaskItem.configure({ nested: true }),
       TightTaskLists,
       Spellcheck,
-      createTranslate({ getPair }),
+      createTranslate({ getPair, notify: (m, k) => actions.notify(m, k) }),
       Youtube.configure({ nocookie: true, width: 640, height: 360 }),
       TextStyle,
       Color,
@@ -257,7 +258,8 @@ function createToolbar(editor, actions, getPair) {
       B('s', '<s>S</s>', 'Tachado', () => editor.chain().focus().toggleStrike().run(), () => editor.isActive('strike')),
       B('code', '&lt;/&gt;', 'Código en línea', () => editor.chain().focus().toggleCode().run(), () => editor.isActive('code')),
       B('color', '<span class="tb-color">A</span><span class="tb-caret">▾</span>', 'Color de letra y resaltado', () => togglePalette(), () => editor.isActive('textStyle', {}) && !!editor.getAttributes('textStyle').color),
-      B('spell', '<span class="tb-spell">abc</span><span class="tb-caret">▾</span>', 'Ortografía: idiomas y diccionario personal', () => toggleSpell(), () => spell.enabled),
+      B('spell', '<span class="tb-spell">abc</span><span class="tb-caret">▾</span>', 'Ortografía, traducción e idiomas', () => toggleSpell(), () => spell.enabled),
+      B('trad', 'Traducir', 'Traducir el texto seleccionado (Alt+T). La traducción aparece debajo, en cursiva.', () => translateSelection(editor, getPair(), (m, k) => actions.notify(m, k))),
     ],
     [
       B('ul', '• Lista', 'Lista con viñetas', () => editor.chain().focus().toggleBulletList().run(), () => editor.isActive('bulletList')),
@@ -345,7 +347,10 @@ function createToolbar(editor, actions, getPair) {
       const curV = cur ? cur.join('-') : '';
       spellPanel.innerHTML = spellPanelHTML() + `<div class="pal-row col trad-row"><span class="pal-label">Traducción en esta página</span>
         <select data-trad><option value="">Desactivada</option>${PAIRS.map((p) => `<option value="${p.join('-')}"${p.join('-') === curV ? ' selected' : ''}>${pairLabel(p)}</option>`).join('')}</select>
-        <p class="sp-note">Escribí <b>hallo:</b> y aparece la traducción al lado. En las tablas de vocabulario completa la columna Traducción.</p></div>`;
+        <p class="sp-note">Escribí <b>hallo:</b> y aparece la traducción al lado. En las tablas de vocabulario completa la columna Traducción. Para oraciones: seleccioná y <b>Alt+T</b>.</p></div>
+        <div class="pal-row col"><span class="pal-label">Google Translate</span>
+        <p class="sp-note">${googleKey.get() ? '✓ Conectado: las oraciones y palabras se traducen con Google.' : 'Sin conectar: se usa MyMemory (calidad irregular en oraciones).'}</p>
+        <button type="button" class="tb" data-google>${googleKey.get() ? 'Cambiar o quitar la clave' : 'Conectar Google Translate'}</button></div>`;
       const b = el.querySelector('[data-id="spell"]');
       spellPanel.style.left = `${b.offsetLeft}px`;
       spellPanel.style.top = `${b.offsetTop + b.offsetHeight + 4}px`;
@@ -363,6 +368,7 @@ function createToolbar(editor, actions, getPair) {
   });
   spellPanel.addEventListener('click', (e) => {
     if (e.target.closest('[data-personal]')) { toggleSpell(false); showPersonalDictionary(); }
+    if (e.target.closest('[data-google]')) { toggleSpell(false); showGoogleKeyDialog(); }
   });
   document.addEventListener('mousedown', (e) => { if (!spellPanel.hidden && !spellPanel.contains(e.target) && !e.target.closest('[data-id="spell"]')) toggleSpell(false); });
 

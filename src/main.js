@@ -119,6 +119,7 @@ const actions = {
   },
   showHelp,
   setTranslationPair: (v) => setTranslationPair(v),
+  notify: (msg, kind) => toast(msg, kind),
 };
 
 const editor = createEditor({

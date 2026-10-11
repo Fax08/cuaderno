@@ -1,5 +1,6 @@
-// Traducción de palabras y expresiones cortas para las páginas de idiomas.
-// Fuentes: Wiktionary en español (acepciones, género) y, si no encuentra, MyMemory (filtrado).
+// Traducción de palabras y oraciones para las páginas de idiomas.
+// Palabras: Wiktionary en español (acepciones, género) + Google (si hay clave) o MyMemory.
+// Oraciones: Google Cloud Translation (si hay clave) o MyMemory.
 // Las respuestas se guardan en ".traducciones.json" en la carpeta de notas (funciona sin conexión
 // para lo ya buscado y no repite consultas).
 
@@ -69,19 +70,64 @@ export const translator = {
   },
 
   async lookup(text, from, to) {
+    // Oraciones: Google (si hay clave) y si no, MyMemory
+    if (isSentence(text)) {
+      try { const g = await google(text, from, to); if (g) return g; } catch { /* sigue con MyMemory */ }
+      try { return await mymemory(text, from, to, true); } catch { return null; }
+    }
+    // Palabras: acepciones de Wiktionary + la traducción más usada (Google o MyMemory)
     let w = null, m = null;
     try { w = await wiktionary(text, from, to); } catch { w = null; }
-    try { m = await mymemory(text, from, to); } catch { m = null; }
+    try { m = await google(text, from, to); } catch { m = null; }
+    if (!m) { try { m = await mymemory(text, from, to); } catch { m = null; } }
     if (w && w.main && m && m.main) {
-      // La traducción más usada (MyMemory) va primero si también es una acepción del diccionario
       const all = [w.main, ...w.alts];
       const hit = all.find((x) => x.toLowerCase() === m.main.toLowerCase());
       if (hit) return { ...w, main: hit, alts: all.filter((x) => x !== hit).slice(0, 5) };
-      return w;
+      return { ...w, alts: [...w.alts, m.main].slice(0, 6) };
     }
     return w && w.main ? w : m;
   },
 };
+
+export const isSentence = (s) => words(s) > 4 || /[.!?;,¿¡]/.test(s.trim().replace(/[.:…]+$/, ''));
+
+// ---------- Google Cloud Translation (clave guardada solo en este navegador) ----------
+const KEY_STORE = 'cuaderno.googleKey';
+export const googleKey = {
+  get() { try { return localStorage.getItem(KEY_STORE) || ''; } catch { return ''; } },
+  set(v) { try { if (v) localStorage.setItem(KEY_STORE, v.trim()); else localStorage.removeItem(KEY_STORE); } catch { /* sin almacenamiento */ } },
+};
+
+async function google(text, from, to, key = googleKey.get()) {
+  if (!key) return null;
+  const r = await fetch(`https://translation.googleapis.com/language/translate/v2?key=${encodeURIComponent(key)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ q: text, source: from, target: to, format: 'text' }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok) throw new Error((j.error && j.error.message) || `Google respondió ${r.status}`);
+  const t = j.data && j.data.translations && j.data.translations[0] && j.data.translations[0].translatedText;
+  return t ? { main: t, alts: [], notas: '', fuente: 'Google' } : null;
+}
+
+// Prueba una clave: devuelve la traducción de "Guten Morgen" o lanza el error de Google en texto claro
+export async function testGoogleKey(key) {
+  try {
+    const r = await google('Guten Morgen', 'de', 'es', key);
+    if (!r) throw new Error('Google no devolvió una traducción.');
+    return r.main;
+  } catch (e) {
+    const msg = String(e.message || e);
+    if (/API key not valid/i.test(msg)) throw new Error('La clave no es válida. Revisá que esté copiada completa.');
+    if (/has not been used|disabled/i.test(msg)) throw new Error('Falta habilitar "Cloud Translation API" en el proyecto (paso 4).');
+    if (/billing/i.test(msg)) throw new Error('El proyecto no tiene la facturación activada (paso 3).');
+    if (/referer|referrer/i.test(msg)) throw new Error('La clave no permite este sitio: agregá https://fax08.github.io/* en sus restricciones (paso 6).');
+    if (/Failed to fetch|NetworkError/i.test(msg)) throw new Error('No hay conexión con Google.');
+    throw new Error(msg);
+  }
+}
 
 
 // Sin alternativas repetidas (ni que solo cambien en mayúsculas)
@@ -166,10 +212,15 @@ async function wiktionary(text, from, to) {
 }
 
 // ---------- MyMemory (filtrado: descarta frases largas que no son traducciones) ----------
-async function mymemory(text, from, to) {
+async function mymemory(text, from, to, sentence = false) {
   const r = await fetch(`https://api.mymemory.translated.net/get?q=${encodeURIComponent(text)}&langpair=${from}|${to}`);
   if (!r.ok) return null;
   const j = await r.json();
+  if (sentence) {
+    // Oraciones: la traducción automática principal (sin el filtro de palabras sueltas)
+    const t = j.responseData && j.responseData.translatedText;
+    return t && !/MYMEMORY WARNING/i.test(t) ? { main: t.trim(), alts: [], notas: '', fuente: 'MyMemory' } : null;
+  }
   const max = Math.max(3, words(text) * 2 + 1);
   const cands = [j.responseData && j.responseData.translatedText, ...(j.matches || []).map((m) => m.translation)]
     .filter(Boolean)

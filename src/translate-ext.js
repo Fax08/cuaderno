@@ -35,6 +35,52 @@ async function translateWord(word, pair) {
   return r ? { ...r, dir } : null;
 }
 
+// ---------- oraciones: seleccionar + Alt+T ----------
+// Idioma de un texto: el de más palabras válidas en su diccionario (alemán, inglés, español)
+async function detectLang(text, candidates) {
+  const ws = (text.match(/\p{L}{2,}/gu) || []).slice(0, 14);
+  const score = Object.fromEntries(candidates.map((c) => [c, 0]));
+  for (const w of ws) {
+    try {
+      const r = await spell.which(w, candidates);
+      r.langs.forEach((c) => { if (c in score) score[c]++; });
+    } catch { /* sin diccionarios: se decide por la página */ }
+  }
+  return candidates.reduce((a, b) => (score[b] > score[a] ? b : a));
+}
+
+const lastForeign = {
+  get() { try { return localStorage.getItem('cuaderno.trad.last') || 'en'; } catch { return 'en'; } },
+  set(c) { try { localStorage.setItem('cuaderno.trad.last', c); } catch { /* sin almacenamiento */ } },
+};
+
+export async function translateSelection(editor, pair, notify = () => {}) {
+  const { state } = editor;
+  const { from, to, empty } = state.selection;
+  if (empty) { notify('Seleccioná el texto que querés traducir.', 'bad'); return; }
+  const text = state.doc.textBetween(from, to, ' ').replace(/\s+/g, ' ').trim();
+  if (!text) return;
+  const foreign = pair ? pair.find((c) => c !== 'es') : null;
+  const src = await detectLang(text, foreign ? [foreign, 'es'] : ['de', 'en', 'es']);
+  const dst = src === 'es' ? (foreign || lastForeign.get()) : 'es';
+  if (src !== 'es') lastForeign.set(src);
+  notify('Traduciendo…');
+  const r = await translator.translate(text, src, dst);
+  if (!r) { notify('No se pudo traducir. Revisá la conexión o la clave de Google (botón abc▾).', 'bad'); return; }
+  // La traducción va en un párrafo nuevo, en cursiva, debajo del bloque seleccionado
+  const view = editor.view;
+  const { schema } = view.state;
+  const $end = view.state.doc.resolve(Math.min(to, view.state.doc.content.size));
+  const after = $end.after($end.depth);
+  const para = schema.nodes.paragraph.create(null, schema.text(r.main, schema.marks.italic ? [schema.marks.italic.create()] : []));
+  const tr = view.state.tr.insert(after, para);
+  tr.setSelection(TextSelection.create(tr.doc, after + 1 + r.main.length));
+  tr.setStoredMarks([]);
+  view.dispatch(tr.scrollIntoView());
+  view.focus();
+  notify(`Traducido (${src} → ${dst}, ${r.fuente}).`);
+}
+
 // ---------- tablas ----------
 function tableInfo(state, cellPos) {
   const cell = state.doc.nodeAt(cellPos);
@@ -100,9 +146,12 @@ export async function fillEmptyTranslations(editor, pair) {
 }
 
 // ---------- extensión ----------
-export function createTranslate({ getPair }) {
+export function createTranslate({ getPair, notify }) {
   return Extension.create({
     name: 'translateHelper',
+    addKeyboardShortcuts() {
+      return { 'Alt-t': () => { translateSelection(this.editor, getPair(), notify); return true; } };
+    },
     addProseMirrorPlugins() {
       return [new Plugin({
         key,

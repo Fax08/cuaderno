@@ -45,6 +45,8 @@ const SECTIONS = [
   ['Traducción (páginas de idiomas)', [
     ['<code>hallo:</code>', 'En una línea sola, una palabra con dos puntos muestra la traducción al lado. <kbd>Tab</kbd> o clic la deja escrita; también podés elegir otra acepción.'],
     ['Tablas', 'Al salir de la celda Palabra se completa Traducción (y el artículo der/die/das en Notas). "Traducir vacías" completa todas las filas.'],
+    ['<kbd>Alt</kbd>+<kbd>T</kbd>', 'Oraciones: seleccioná el texto y apretá Alt+T (o el botón Traducir de la barra). La traducción aparece debajo, en cursiva. Detecta solo si está en alemán, inglés o español.'],
+    ['Google Translate', 'Botón <b>abc▾</b> → Conectar Google Translate: mejor calidad, sobre todo en oraciones. Sin clave se usa MyMemory.'],
     ['Dirección', 'Cada página tiene su par (por ejemplo Alemán → Español). Si escribís en español, traduce al revés.'],
     ['Activar', 'Las páginas de vocabulario y gramática ya la traen. En cualquier otra: botón <b>abc▾</b> → Traducción en esta página.'],
   ]],
