@@ -21,6 +21,7 @@ import { showHelp } from './help.js';
 import { createSymbolPanel } from './symbols.js';
 import { startReview, loadStore, parseCards } from './repaso.js';
 import { createSearch, revealText } from './search.js';
+import { spell } from './spell.js';
 
 // ---------- estado ----------
 const ls = {
@@ -207,6 +208,7 @@ async function choose() {
 
 async function start(root) {
   S.root = root;
+  spell.start(root);
   $('gate').hidden = true;
   $('folderName').textContent = root.name;
   await refreshTree();

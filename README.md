@@ -111,6 +111,7 @@ Publicar en GitHub Pages: `npm run deploy` (compila y sube `dist/` a la rama `gh
 9. ✅ Búsqueda en todas las notas
 
 10. ✅ Gráficos con altura ajustable y vista detallada (doble clic)
+11. ✅ Corrector ortográfico propio (Hunspell): español + inglés + alemán opcionales, compuestos alemanes, diccionario personal en `.diccionario.txt`
 
 Pendiente (anotado, sin empezar):
 - **Cubos elementales**: estado tensional en un cubo 3D / elemento plano, principales y Mohr.

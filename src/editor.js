@@ -12,6 +12,7 @@ import { Markdown } from 'tiptap-markdown';
 import { resolveAsset } from './fs.js';
 import { MathInline, MathBlock, mathLock } from './math-nodes.js';
 import { Plot } from './plot-node.js';
+import { Spellcheck, spell, spellPanelHTML, showPersonalDictionary } from './spell.js';
 import { engine } from './calc.js';
 
 // Imagen con ruta relativa a la página: se muestra leyendo el archivo de _assets/.
@@ -88,6 +89,7 @@ export function createEditor({ element, getPageDir, onChange, actions }) {
       TaskList,
       TaskItem.configure({ nested: true }),
       TightTaskLists,
+      Spellcheck,
       Youtube.configure({ nocookie: true, width: 640, height: 360 }),
       TextStyle,
       Color,
@@ -99,6 +101,7 @@ export function createEditor({ element, getPageDir, onChange, actions }) {
       Markdown.configure({ html: true, tightLists: true, bulletListMarker: '-', linkify: true, transformPastedText: true }),
     ],
     editorProps: {
+      attributes: { spellcheck: 'false' }, // usamos el corrector propio, no el del navegador
       handleKeyDown: (_view, event) => slash.handleKey(event),
       handlePaste: (_view, event) => {
         const files = [...(event.clipboardData?.files || [])].filter((f) => f.type.startsWith('image/'));
@@ -251,6 +254,7 @@ function createToolbar(editor, actions) {
       B('s', '<s>S</s>', 'Tachado', () => editor.chain().focus().toggleStrike().run(), () => editor.isActive('strike')),
       B('code', '&lt;/&gt;', 'Código en línea', () => editor.chain().focus().toggleCode().run(), () => editor.isActive('code')),
       B('color', '<span class="tb-color">A</span><span class="tb-caret">▾</span>', 'Color de letra y resaltado', () => togglePalette(), () => editor.isActive('textStyle', {}) && !!editor.getAttributes('textStyle').color),
+      B('spell', '<span class="tb-spell">abc</span><span class="tb-caret">▾</span>', 'Ortografía: idiomas y diccionario personal', () => toggleSpell(), () => spell.enabled),
     ],
     [
       B('ul', '• Lista', 'Lista con viñetas', () => editor.chain().focus().toggleBulletList().run(), () => editor.isActive('bulletList')),
@@ -324,6 +328,35 @@ function createToolbar(editor, actions) {
     togglePalette(false);
   });
   document.addEventListener('mousedown', (e) => { if (!palette.hidden && !palette.contains(e.target) && !e.target.closest('[data-id="color"]')) togglePalette(false); });
+
+  // Panel de ortografía
+  const spellPanel = document.createElement('div');
+  spellPanel.className = 'tb-palette spell-panel';
+  spellPanel.hidden = true;
+  el.appendChild(spellPanel);
+  function toggleSpell(force) {
+    const open = force ?? spellPanel.hidden;
+    spellPanel.hidden = !open;
+    if (open) {
+      spellPanel.innerHTML = spellPanelHTML();
+      const b = el.querySelector('[data-id="spell"]');
+      spellPanel.style.left = `${b.offsetLeft}px`;
+      spellPanel.style.top = `${b.offsetTop + b.offsetHeight + 4}px`;
+    }
+  }
+  spellPanel.addEventListener('change', async (e) => {
+    if (e.target.matches('[data-spell-on]')) { spell.setEnabled(e.target.checked); refresh(); }
+    const lang = e.target.dataset.lang;
+    if (lang) {
+      e.target.disabled = true;
+      await spell.setLang(lang, e.target.checked);
+      e.target.disabled = false;
+    }
+  });
+  spellPanel.addEventListener('click', (e) => {
+    if (e.target.closest('[data-personal]')) { toggleSpell(false); showPersonalDictionary(); }
+  });
+  document.addEventListener('mousedown', (e) => { if (!spellPanel.hidden && !spellPanel.contains(e.target) && !e.target.closest('[data-id="spell"]')) toggleSpell(false); });
 
   const tableGroup = el.querySelector('.tb-table');
   const lockBtn = el.querySelector('[data-id="lock"]');

@@ -13,6 +13,7 @@ const SECTIONS = [
   ['Insertar', [
     ['<kbd>/</kbd>', 'Menú para insertar: títulos, ecuación, gráfico, tabla, imagen, video…'],
     ['<b>A▾</b> en la barra', 'Color de letra y resaltado del texto seleccionado.'],
+    ['<b>abc▾</b> en la barra', 'Ortografía: prenderla o apagarla y elegir idiomas (español siempre; inglés y alemán opcionales). Clic derecho sobre una palabra subrayada para ver sugerencias o agregarla al diccionario personal.'],
     ['<kbd>Ctrl</kbd>+<kbd>M</kbd>', 'Ecuación dentro del texto. También escribiendo <code>$x^2$</code>.'],
     ['<kbd>$$</kbd> + espacio', 'Ecuación aparte, en su propia línea (o <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>M</kbd>).'],
     ['<kbd>#</kbd> <kbd>##</kbd> <kbd>###</kbd> + espacio', 'Títulos 1, 2 y 3. Arman el índice de la derecha.'],
