@@ -58,7 +58,10 @@ await page.evaluate(() => {
 });
 await page.keyboard.press('Tab');
 await wait(400);
-console.log('TAB ESCRIBIÓ:', (await md()).split('\n').find((l) => l.startsWith('hallo')));
+console.log('TAB ESCRIBIÓ:', (await md()).split('\n').find((l) => /^\**hallo/.test(l)));
+await page.keyboard.type(' sigue');
+await wait(300);
+console.log('LO QUE SIGUE VA SIN FORMATO:', (await md()).split('\n').find((l) => /^\**hallo/.test(l)));
 
 // Tabla: escribir una palabra en la primera columna y pasar a la siguiente
 await page.evaluate(() => {

@@ -199,11 +199,21 @@ export function createTranslate({ getPair }) {
   });
 }
 
+// Deja "**palabra**: *traducción*": la palabra en negrita y la traducción en cursiva.
+// Reemplaza lo que haya después de los dos puntos (espacios, un punto suelto).
 function insertAfterColon(view, endPos, fullText, term) {
-  // Reemplaza lo que haya después de los dos puntos (espacios, un punto suelto) por " traducción"
-  const from = endPos - fullText.length + fullText.lastIndexOf(':') + 1;
-  const tr = view.state.tr.insertText(` ${term}`, from, endPos);
+  const { schema } = view.state;
+  const start = endPos - fullText.length;
+  const colon = fullText.lastIndexOf(':');
+  const from = start + colon + 1;
+  const lead = fullText.length - fullText.trimStart().length;
+  const wordEnd = start + fullText.slice(0, colon).trimEnd().length;
+  const tr = view.state.tr.delete(from, endPos);
+  if (schema.marks.bold && wordEnd > start + lead) tr.addMark(start + lead, wordEnd, schema.marks.bold.create());
+  tr.insert(from, schema.text(' '));
+  tr.insert(from + 1, schema.text(term, schema.marks.italic ? [schema.marks.italic.create()] : []));
   tr.setSelection(TextSelection.create(tr.doc, from + 1 + term.length));
+  tr.setStoredMarks([]); // lo que se escriba después va sin formato
   view.dispatch(tr);
   view.focus();
 }
