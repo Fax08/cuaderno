@@ -10,7 +10,7 @@ import { translator } from './translate.js';
 import { spell } from './spell.js';
 
 const key = new PluginKey('translate');
-const TRIGGER = /^\s*(\p{L}[\p{L}'’\- ]{0,48}?)\s*:\s*$/u;
+const TRIGGER = /^\s*(\p{L}[\p{L}'’\- ]{0,48}?)\s*:[\s.…·]*$/u;
 const WORD_HEAD = /^(palabra|word|wort|t[ée]rmino|vocablo|expresi[óo]n)/i;
 const TRAD_HEAD = /^(traducci[óo]n|translation|übersetzung|significado)/i;
 const NOTE_HEAD = /^(notas?|notes?|g[ée]nero)/i;
@@ -200,9 +200,10 @@ export function createTranslate({ getPair }) {
 }
 
 function insertAfterColon(view, endPos, fullText, term) {
-  const sep = /\s$/.test(fullText) ? '' : ' ';
-  const tr = view.state.tr.insertText(`${sep}${term}`, endPos);
-  tr.setSelection(TextSelection.create(tr.doc, endPos + sep.length + term.length));
+  // Reemplaza lo que haya después de los dos puntos (espacios, un punto suelto) por " traducción"
+  const from = endPos - fullText.length + fullText.lastIndexOf(':') + 1;
+  const tr = view.state.tr.insertText(` ${term}`, from, endPos);
+  tr.setSelection(TextSelection.create(tr.doc, from + 1 + term.length));
   view.dispatch(tr);
   view.focus();
 }

@@ -560,10 +560,12 @@ function renderProps() {
     else input = `<input id="${id}" data-i="${i}" value="${esc(v)}">`;
     return `<label class="prop"><span>${esc(k)}</span>${input}</label>`;
   }).join('');
-  const review = (pagePair() ? '<button type="button" class="btn small" data-fill-trad title="Completa la columna Traducción de las filas que tienen la palabra pero no la traducción">Traducir vacías</button>' : '')
+  const auto = !meta.some(([k]) => k === 'traduccion') && pagePair();
+  const autoTrad = auto ? `<label class="prop"><span>traduccion</span><select data-trad-auto><option value="no">Desactivada</option>${PAIRS.map((p) => `<option value="${p.join('-')}"${p.join('-') === auto.join('-') ? ' selected' : ''}>${pairLabel(p)}</option>`).join('')}</select><small class="prop-auto">automática</small></label>` : '';
+  const review = autoTrad + (pagePair() ? '<button type="button" class="btn small" data-fill-trad title="Completa la columna Traducción de las filas que tienen la palabra pero no la traducción">Traducir vacías</button>' : '')
     + (tipo === 'vocabulario' ? '<button type="button" class="btn primary small" data-review-page>Repasar esta lista</button>' : '');
   $('props').innerHTML = (tipo ? `<span class="tipo tipo-${esc(tipo)}">${TIPOS[tipo] || esc(tipo)}</span>` : '') + fields + review;
-  $('props').hidden = !tipo && !fields;
+  $('props').hidden = !tipo && !fields && !auto;
 }
 $('props').addEventListener('click', async (e) => {
   if (e.target.closest('[data-fill-trad]') && S.page) {
@@ -582,6 +584,7 @@ $('props').addEventListener('click', async (e) => {
   startReview({ root: S.root, cards, title: `Repaso · ${name}` });
 });
 $('props').addEventListener('change', (e) => {
+  if (e.target.matches('[data-trad-auto]')) { setTranslationPair(e.target.value === 'no' ? '' : e.target.value); return; }
   const i = e.target.dataset.i;
   if (i === undefined || !S.page) return;
   S.page.meta[Number(i)][1] = e.target.value;
@@ -594,22 +597,41 @@ $('props').addEventListener('change', (e) => {
 // ---------- traducción ----------
 // El corrector acepta también el idioma de la página (p. ej. alemán en una página de-es)
 spell.pageLangs = () => pagePair() || [];
+// Par de traducción de la página abierta:
+//  · la propiedad "traduccion" manda (con "no" queda desactivada);
+//  · si no está, se activa sola dentro de una carpeta de idioma (Alemán, Inglés…)
+//    o en páginas de vocabulario y gramática.
 function pagePair() {
-  const v = S.page && S.page.meta.find(([k]) => k === 'traduccion');
-  return v ? parsePair(v[1]) : null;
+  if (!S.page) return null;
+  const v = S.page.meta.find(([k]) => k === 'traduccion');
+  if (v) return parsePair(v[1]);
+  return implicitPair();
 }
-// Idioma probable según el nombre de las carpetas (Alemán, Deutsch, Inglés, English…)
+function implicitPair() {
+  if (!S.page) return null;
+  const lang = langFromPath(S.page.path);
+  if (lang) return [lang, 'es'];
+  const tipo = S.page.meta.find(([k]) => k === 'tipo')?.[1];
+  return tipo === 'vocabulario' || tipo === 'gramatica' ? ['en', 'es'] : null;
+}
+// Idioma según el nombre de las carpetas (Alemán, Deutsch, Inglés, English…)
+function langFromPath(path) {
+  const p = path.slice(0, -1).join('/').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  if (/aleman|deutsch|german/.test(p)) return 'de';
+  if (/ingles|english/.test(p)) return 'en';
+  return null;
+}
 function guessPair(path) {
-  const p = path.join('/').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
-  if (/aleman|deutsch|german/.test(p)) return ['de', 'es'];
-  return ['en', 'es'];
+  return [langFromPath([...path, '']) || 'en', 'es'];
 }
 function setTranslationPair(v) {
   if (!S.page) return toast('Abrí una página primero.', 'bad');
   const meta = S.page.meta.filter(([k]) => k !== 'traduccion');
-  if (v) {
+  // Desactivar en una página donde se activaría sola: queda guardado "traduccion: no"
+  const value = v || (implicitPair() ? 'no' : '');
+  if (value) {
     const i = meta.findIndex(([k]) => k === 'tipo');
-    meta.splice(i + 1, 0, ['traduccion', v]);
+    meta.splice(i + 1, 0, ['traduccion', value]);
   }
   S.page.meta = meta;
   S.dirty = true;

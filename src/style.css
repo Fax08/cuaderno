@@ -284,6 +284,8 @@ math-field::part(virtual-keyboard-toggle) { display: none; }
 .pd-sec h3 { margin: 0; font: 600 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--accent); }
 .pd-side .pf-field { flex: 1 1 120px; }
 
+.prop-auto { font: 10.5px var(--mono); color: var(--muted); }
+
 /* ---------- traducción en línea ("hallo:" → hola) ---------- */
 .trad-ghost { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 4px; margin-left: 8px; font-family: var(--sans); font-size: .9em; color: var(--accent); user-select: none; }
 .tg-arrow { color: var(--muted); }

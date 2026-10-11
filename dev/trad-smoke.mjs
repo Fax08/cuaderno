@@ -21,12 +21,11 @@ await page.evaluate(async () => {
   const w = await fh.createWritable();
   await w.write(`---
 tipo: vocabulario
-traduccion: de-es
 ---
 
 # Vocabulario · Clase 1
 
-hallo:
+hallo:.
 
 tensión:
 
@@ -34,6 +33,7 @@ tensión:
 | --- | --- | --- | --- |
 | Verformung |  |  |  |
 | x |  |  |  |
+| hallo |  |  |  |
 `);
   await w.close();
   const db = await new Promise((res) => { const r = indexedDB.open('cuaderno', 1); r.onupgradeneeded = () => r.result.createObjectStore('kv'); r.onsuccess = () => res(r.result); });
@@ -45,6 +45,7 @@ await page.reload({ waitUntil: 'networkidle0' });
 await page.waitForFunction(() => document.querySelectorAll('.trad-ghost[data-ready]').length >= 2, { timeout: 30000 }).catch(() => {});
 await new Promise((r) => setTimeout(r, 2500));
 console.log('SUBRAYADAS EN PÁGINA ALEMANA:', await page.$$eval('.spell-err', (els) => els.map((e) => e.textContent)));
+console.log('PROPIEDAD AUTOMÁTICA:', await page.$eval('[data-trad-auto]', (s) => s.options[s.selectedIndex].text).catch(() => 'no aparece'));
 console.log('RESULTADOS AL LADO:', await page.$$eval('.trad-ghost', (els) => els.map((e) => e.textContent.replace(/\s+/g, ' ').trim())));
 await page.screenshot({ path: `${shots}/trad-1.png` });
 
@@ -73,8 +74,8 @@ console.log('FILA COMPLETADA SOLA:', (await md()).split('\n').find((l) => l.incl
 
 // Botón "Traducir vacías"
 await page.click('[data-fill-trad]');
-await page.waitForFunction(() => /\| Verformung \| [^|\s]/.test(window.cuaderno.editor.getMarkdown()), { timeout: 30000 }).catch(() => {});
-console.log('TRADUCIR VACÍAS:', (await md()).split('\n').find((l) => l.includes('Verformung')));
+await page.waitForFunction(() => /\| Verformung \| [^|\s]/.test(window.cuaderno.editor.getMarkdown()) && /\| hallo \| [^|\s]/.test(window.cuaderno.editor.getMarkdown()), { timeout: 30000 }).catch(() => {});
+console.log('TRADUCIR VACÍAS:', (await md()).split('\n').filter((l) => /Verformung|\| hallo/.test(l)));
 await page.screenshot({ path: `${shots}/trad-2.png` });
 await wait(1500);
 const cache = await page.evaluate(async () => { const r = await navigator.storage.getDirectory(); const t = await r.getDirectoryHandle('Notas'); try { return Object.keys(JSON.parse(await (await (await t.getFileHandle('.traducciones.json')).getFile()).text())); } catch { return 'no existe'; } });
