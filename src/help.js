@@ -42,6 +42,12 @@ const SECTIONS = [
     ['Orden', 'Se calcula de arriba hacia abajo: usá una variable después de definirla.'],
     ['Sin “=”', 'Una ecuación sin “:=” ni “=” al final es solo una fórmula escrita; no se calcula.'],
   ]],
+  ['Traducción (páginas de idiomas)', [
+    ['<code>hallo:</code>', 'En una línea sola, una palabra con dos puntos muestra la traducción al lado. <kbd>Tab</kbd> o clic la deja escrita; también podés elegir otra acepción.'],
+    ['Tablas', 'Al salir de la celda Palabra se completa Traducción (y el artículo der/die/das en Notas). "Traducir vacías" completa todas las filas.'],
+    ['Dirección', 'Cada página tiene su par (por ejemplo Alemán → Español). Si escribís en español, traduce al revés.'],
+    ['Activar', 'Las páginas de vocabulario y gramática ya la traen. En cualquier otra: botón <b>abc▾</b> → Traducción en esta página.'],
+  ]],
   ['Repaso de vocabulario', [
     ['Tablas', 'Cada fila de una tabla en una página de vocabulario es una tarjeta: 1.ª columna frente, 2.ª respuesta, 3.ª ejemplo, 4.ª notas.'],
     ['<kbd>Espacio</kbd>', 'Muestra la respuesta. Después <kbd>1</kbd> otra vez, <kbd>2</kbd> difícil, <kbd>3</kbd> bien, <kbd>4</kbd> fácil.'],

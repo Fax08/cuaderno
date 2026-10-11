@@ -134,23 +134,27 @@ fecha: ${fecha}
 - [ ]
 `,
 
-  vocabulario: ({ nombre }) => `---
+  vocabulario: ({ nombre, traduccion = 'en-es' }) => `---
 tipo: vocabulario
+traduccion: ${traduccion}
 ---
 
 # ${nombre}
 
-Cada fila es una tarjeta de repaso: la primera columna es el frente y la segunda, la respuesta. Tocá **Repasar** arriba para practicar.
+Escribí la palabra en la primera columna y, al pasar a la siguiente, se completa la traducción. Cada fila es una tarjeta de repaso: tocá **Repasar esta lista** arriba para practicar.
 
 | Palabra | Traducción | Ejemplo | Notas |
 | --- | --- | --- | --- |
-| to achieve | lograr, alcanzar | She achieved all her goals. | regular |
+${traduccion.startsWith('de') ? `| hallo | hola | Hallo, wie geht's? | saludo |
+| die Spannung | tensión | Die Spannung ist zu hoch. | die, -en |
+| verstehen | entender | Ich verstehe das nicht. | irregular: verstand, verstanden |` : `| to achieve | lograr, alcanzar | She achieved all her goals. | regular |
 | to rely on | depender de, confiar en | You can rely on me. | phrasal verb |
-| although | aunque | Although it was late, we kept working. | conector |
+| although | aunque | Although it was late, we kept working. | conector |`}
 `,
 
-  gramatica: ({ nombre }) => `---
+  gramatica: ({ nombre, traduccion = 'en-es' }) => `---
 tipo: gramatica
+traduccion: ${traduccion}
 ---
 
 # ${nombre}

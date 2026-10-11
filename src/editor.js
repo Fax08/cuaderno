@@ -13,6 +13,8 @@ import { resolveAsset } from './fs.js';
 import { MathInline, MathBlock, mathLock } from './math-nodes.js';
 import { Plot } from './plot-node.js';
 import { Spellcheck, spell, spellPanelHTML, showPersonalDictionary } from './spell.js';
+import { createTranslate } from './translate-ext.js';
+import { PAIRS, pairLabel } from './translate.js';
 import { engine } from './calc.js';
 
 // Imagen con ruta relativa a la página: se muestra leyendo el archivo de _assets/.
@@ -76,7 +78,7 @@ const TightTaskLists = Extension.create({
   },
 });
 
-export function createEditor({ element, getPageDir, onChange, actions }) {
+export function createEditor({ element, getPageDir, onChange, actions, getPair = () => null }) {
   const editor = new Editor({
     element,
     extensions: [
@@ -90,6 +92,7 @@ export function createEditor({ element, getPageDir, onChange, actions }) {
       TaskItem.configure({ nested: true }),
       TightTaskLists,
       Spellcheck,
+      createTranslate({ getPair }),
       Youtube.configure({ nocookie: true, width: 640, height: 360 }),
       TextStyle,
       Color,
@@ -124,7 +127,7 @@ export function createEditor({ element, getPageDir, onChange, actions }) {
   });
 
   const slash = createSlashMenu(editor, actions);
-  const toolbar = createToolbar(editor, actions);
+  const toolbar = createToolbar(editor, actions, getPair);
 
   // Recalcula las ecuaciones (variables, resultados y gráficos) cuando cambia la página.
   let calcTimer;
@@ -236,7 +239,7 @@ function createSlashMenu(editor, actions) {
 const LOCK_ICON = (closed) => `<svg class="tb-lock-ico" viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><rect x="3" y="7" width="10" height="7" rx="1.5" fill="currentColor"/><path d="${closed ? 'M5 7V5a3 3 0 0 1 6 0v2' : 'M5 7V5a3 3 0 0 1 5.8-1'}" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>`;
 const lockLabel = () => (mathLock.locked ? `${LOCK_ICON(true)} Fórmulas bloqueadas` : `${LOCK_ICON(false)} Fórmulas editables`);
 
-function createToolbar(editor, actions) {
+function createToolbar(editor, actions, getPair) {
   const el = document.createElement('div');
   el.className = 'toolbar';
   el.setAttribute('role', 'toolbar');
@@ -338,7 +341,11 @@ function createToolbar(editor, actions) {
     const open = force ?? spellPanel.hidden;
     spellPanel.hidden = !open;
     if (open) {
-      spellPanel.innerHTML = spellPanelHTML();
+      const cur = getPair();
+      const curV = cur ? cur.join('-') : '';
+      spellPanel.innerHTML = spellPanelHTML() + `<div class="pal-row col trad-row"><span class="pal-label">Traducción en esta página</span>
+        <select data-trad><option value="">Desactivada</option>${PAIRS.map((p) => `<option value="${p.join('-')}"${p.join('-') === curV ? ' selected' : ''}>${pairLabel(p)}</option>`).join('')}</select>
+        <p class="sp-note">Escribí <b>hallo:</b> y aparece la traducción al lado. En las tablas de vocabulario completa la columna Traducción.</p></div>`;
       const b = el.querySelector('[data-id="spell"]');
       spellPanel.style.left = `${b.offsetLeft}px`;
       spellPanel.style.top = `${b.offsetTop + b.offsetHeight + 4}px`;
@@ -346,6 +353,7 @@ function createToolbar(editor, actions) {
   }
   spellPanel.addEventListener('change', async (e) => {
     if (e.target.matches('[data-spell-on]')) { spell.setEnabled(e.target.checked); refresh(); }
+    if (e.target.matches('[data-trad]')) actions.setTranslationPair(e.target.value);
     const lang = e.target.dataset.lang;
     if (lang) {
       e.target.disabled = true;

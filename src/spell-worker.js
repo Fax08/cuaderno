@@ -2,13 +2,15 @@
 // Una palabra es correcta si lo es en alguno de los idiomas activos o está en el diccionario personal.
 import nspell from 'nspell';
 
-let spells = {}; // código → instancia nspell
+let spells = {}; // código → instancia nspell (idiomas activos en el corrector)
+let extra = {}; // diccionarios cargados solo para detectar el idioma de una palabra
 let personal = new Set();
+const dict = (code) => spells[code] || extra[code];
 
 const cap = (w) => w.charAt(0).toUpperCase() + w.slice(1);
 
 function correctIn(code, word) {
-  const sp = spells[code];
+  const sp = dict(code);
   if (!sp) return false;
   if (sp.correct(word)) return true;
   if (code === 'de') return compoundDe(word, 0);
@@ -18,7 +20,7 @@ function correctIn(code, word) {
 // Alemán: acepta compuestos si sus partes son palabras válidas (con "s" de unión opcional)
 function compoundDe(word, depth) {
   if (depth > 2 || word.length < 7) return false;
-  const sp = spells.de;
+  const sp = dict('de');
   for (let i = 3; i <= word.length - 3; i++) {
     const left = word.slice(0, i);
     const rest = word.slice(i);
@@ -32,9 +34,17 @@ function compoundDe(word, depth) {
   return false;
 }
 
-function isCorrect(word) {
+function isCorrect(word, also = []) {
   if (personal.has(word) || personal.has(word.toLowerCase())) return true;
-  return Object.keys(spells).some((code) => correctIn(code, word));
+  return [...new Set([...Object.keys(spells), ...also])].some((code) => correctIn(code, word));
+}
+
+async function loadExtra(need) {
+  for (const [code, urls] of Object.entries(need || {})) {
+    if (dict(code)) continue;
+    const [aff, dic] = await Promise.all([fetch(urls.aff).then((r) => r.text()), fetch(urls.dic).then((r) => r.text())]);
+    extra[code] = nspell(aff, dic);
+  }
 }
 
 // Español: tildes y confusiones frecuentes (s/c/z, b/v, ll/y, h)
@@ -102,9 +112,18 @@ self.onmessage = async (e) => {
       personal = new Set(m.personal || []);
       self.postMessage({ type: 'ready', id: m.id });
     } else if (m.type === 'check') {
-      self.postMessage({ type: 'checked', id: m.id, bad: m.words.filter((w) => !isCorrect(w)) });
+      // "also": idiomas de la página (p. ej. alemán en una página de-es), aunque no estén activos
+      await loadExtra(m.need);
+      const also = Object.keys(m.need || {});
+      self.postMessage({ type: 'checked', id: m.id, bad: m.words.filter((w) => !isCorrect(w, also)) });
     } else if (m.type === 'suggest') {
       self.postMessage({ type: 'suggested', id: m.id, list: suggest(m.word) });
+    } else if (m.type === 'which') {
+      // En qué idiomas es válida una palabra (para elegir la dirección de traducción).
+      // Carga los diccionarios que hagan falta aunque no estén activos en el corrector.
+      await loadExtra(m.need);
+      const codes = [...new Set([...Object.keys(spells), ...Object.keys(extra)])];
+      self.postMessage({ type: 'which', id: m.id, langs: codes.filter((c) => correctIn(c, m.word)), loaded: codes });
     } else if (m.type === 'personal') {
       personal = new Set(m.words);
       self.postMessage({ type: 'ok', id: m.id });

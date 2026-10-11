@@ -55,7 +55,7 @@ await page.mouse.click(700, 600);
 const target = await page.evaluateHandle(() => [...document.querySelectorAll('.spell-err')].find((e) => e.textContent === 'ecuasion'));
 const box = await target.boundingBox();
 await page.mouse.click(box.x + 5, box.y + 5, { button: 'right' });
-await wait(800);
+await page.waitForSelector('.spell-menu .sug', { timeout: 15000 });
 console.log('SUGERENCIAS PARA ecuasion:', await page.$$eval('.spell-menu .sug', (els) => els.map((e) => e.textContent)));
 await page.screenshot({ path: `${shots}/spell-menu.png` });
 await page.click('.spell-menu .sug');
@@ -67,7 +67,7 @@ console.log('CORREGIDA EN EL TEXTO:', md.includes('La ecuación de equilibrio'))
 const t2 = await page.evaluateHandle(() => [...document.querySelectorAll('.spell-err')].find((e) => e.textContent === 'estructurra'));
 const b2 = await t2.boundingBox();
 await page.mouse.click(b2.x + 5, b2.y + 5, { button: 'right' });
-await wait(700);
+await page.waitForSelector('.spell-menu [data-add]', { timeout: 15000 });
 await page.click('.spell-menu [data-add]');
 await wait(1500);
 const dic = await page.evaluate(async () => { const r = await navigator.storage.getDirectory(); const t = await r.getDirectoryHandle('Notas'); return (await (await t.getFileHandle('.diccionario.txt')).getFile()).text(); });

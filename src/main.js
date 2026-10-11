@@ -22,6 +22,8 @@ import { createSymbolPanel } from './symbols.js';
 import { startReview, loadStore, parseCards } from './repaso.js';
 import { createSearch, revealText } from './search.js';
 import { spell } from './spell.js';
+import { translator, parsePair, PAIRS, pairLabel } from './translate.js';
+import { rescanTranslations, fillEmptyTranslations } from './translate-ext.js';
 
 // ---------- estado ----------
 const ls = {
@@ -116,9 +118,11 @@ const actions = {
     }
   },
   showHelp,
+  setTranslationPair: (v) => setTranslationPair(v),
 };
 
 const editor = createEditor({
+  getPair: () => pagePair(),
   element: $('editor'),
   getPageDir: () => S.page?.dir,
   onChange: () => {
@@ -209,6 +213,7 @@ async function choose() {
 async function start(root) {
   S.root = root;
   spell.start(root);
+  translator.start(root);
   $('gate').hidden = true;
   $('folderName').textContent = root.name;
   await refreshTree();
@@ -446,9 +451,11 @@ async function create(kind, path) {
     } else if (kind === 'vocabulario' || kind === 'gramatica') {
       const r = await ask({ title: kind === 'vocabulario' ? 'Nueva lista de vocabulario' : 'Nuevo tema de gramática', fields: [
         { name: 'nombre', label: 'Nombre', placeholder: kind === 'vocabulario' ? 'Verbos frecuentes' : 'Present perfect', required: true },
+        { name: 'par', label: 'Traducción', options: PAIRS.map(pairLabel), value: pairLabel(guessPair(path)) },
       ], ok: 'Crear' });
       if (!r) return;
-      made = await createFile(dir, `${safeName(r.nombre)}.md`, tpl[kind](r));
+      const par = PAIRS.find((p) => pairLabel(p) === r.par) || guessPair(path);
+      made = await createFile(dir, `${safeName(r.nombre)}.md`, tpl[kind]({ ...r, traduccion: par.join('-') }));
     } else {
       const r = await ask({ title: 'Nueva página', fields: [{ name: 'nombre', label: 'Nombre', placeholder: 'Ejercicios', required: true }], ok: 'Crear página' });
       if (!r) return;
@@ -476,7 +483,7 @@ async function newFolder(path) {
     const preset = PRESETS.find((p) => p.label === r.tipo) || PRESETS[0];
     for (const s of preset.sections) await d.getDirectoryHandle(s, { create: true });
     if (preset.sections.includes('Dudas')) await createFile(await d.getDirectoryHandle('Dudas'), 'Dudas.md', tpl.dudas({ materia: name }));
-    if (preset.sections.includes('Vocabulario')) await createFile(await d.getDirectoryHandle('Vocabulario'), 'Vocabulario general.md', tpl.vocabulario({ nombre: `Vocabulario general · ${name}` }));
+    if (preset.sections.includes('Vocabulario')) await createFile(await d.getDirectoryHandle('Vocabulario'), 'Vocabulario general.md', tpl.vocabulario({ nombre: `Vocabulario general · ${name}`, traduccion: guessPair([...path, name]).join('-') }));
     const full = [...path, name];
     for (let i = 1; i <= full.length; i++) S.open.add(full.slice(0, i).join('/'));
     ls.set('cuaderno.open', [...S.open]);
@@ -547,16 +554,26 @@ function renderProps() {
     if (k === 'tipo' || k === 'materia') return '';
     const id = `prop-${i}`;
     let input;
-    if (/fecha|entrega/.test(k)) input = `<input type="date" id="${id}" data-i="${i}" value="${esc(v)}">`;
+    if (k === 'traduccion') input = `<select id="${id}" data-i="${i}" data-trad-prop><option value="">Desactivada</option>${PAIRS.map((p) => `<option value="${p.join('-')}"${p.join('-') === v ? ' selected' : ''}>${pairLabel(p)}</option>`).join('')}</select>`;
+    else if (/fecha|entrega/.test(k)) input = `<input type="date" id="${id}" data-i="${i}" value="${esc(v)}">`;
     else if (k === 'estado' && ESTADOS[tipo]) input = `<select id="${id}" data-i="${i}" data-estado="${esc(v)}">${ESTADOS[tipo].map((o) => `<option${o === v ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
     else input = `<input id="${id}" data-i="${i}" value="${esc(v)}">`;
     return `<label class="prop"><span>${esc(k)}</span>${input}</label>`;
   }).join('');
-  const review = tipo === 'vocabulario' ? '<button type="button" class="btn primary small" data-review-page>Repasar esta lista</button>' : '';
+  const review = (pagePair() ? '<button type="button" class="btn small" data-fill-trad title="Completa la columna Traducción de las filas que tienen la palabra pero no la traducción">Traducir vacías</button>' : '')
+    + (tipo === 'vocabulario' ? '<button type="button" class="btn primary small" data-review-page>Repasar esta lista</button>' : '');
   $('props').innerHTML = (tipo ? `<span class="tipo tipo-${esc(tipo)}">${TIPOS[tipo] || esc(tipo)}</span>` : '') + fields + review;
   $('props').hidden = !tipo && !fields;
 }
 $('props').addEventListener('click', async (e) => {
+  if (e.target.closest('[data-fill-trad]') && S.page) {
+    const b = e.target.closest('[data-fill-trad]');
+    b.disabled = true; b.textContent = 'Traduciendo…';
+    const n = await fillEmptyTranslations(editor, pagePair());
+    b.disabled = false; b.textContent = 'Traducir vacías';
+    toast(n ? `Listo: ${n} traducción${n === 1 ? '' : 'es'}.` : 'No había filas para traducir (o no se encontró la traducción).');
+    return;
+  }
   if (!e.target.closest('[data-review-page]') || !S.page) return;
   await save();
   const name = label(S.page.path[S.page.path.length - 1]);
@@ -571,7 +588,37 @@ $('props').addEventListener('change', (e) => {
   if (e.target.dataset.estado !== undefined) e.target.dataset.estado = e.target.value;
   S.dirty = true;
   save();
+  if (e.target.matches('[data-trad-prop]')) { if (!e.target.value) setTranslationPair(''); else { renderProps(); rescanTranslations(); } }
 });
+
+// ---------- traducción ----------
+// El corrector acepta también el idioma de la página (p. ej. alemán en una página de-es)
+spell.pageLangs = () => pagePair() || [];
+function pagePair() {
+  const v = S.page && S.page.meta.find(([k]) => k === 'traduccion');
+  return v ? parsePair(v[1]) : null;
+}
+// Idioma probable según el nombre de las carpetas (Alemán, Deutsch, Inglés, English…)
+function guessPair(path) {
+  const p = path.join('/').normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+  if (/aleman|deutsch|german/.test(p)) return ['de', 'es'];
+  return ['en', 'es'];
+}
+function setTranslationPair(v) {
+  if (!S.page) return toast('Abrí una página primero.', 'bad');
+  const meta = S.page.meta.filter(([k]) => k !== 'traduccion');
+  if (v) {
+    const i = meta.findIndex(([k]) => k === 'tipo');
+    meta.splice(i + 1, 0, ['traduccion', v]);
+  }
+  S.page.meta = meta;
+  S.dirty = true;
+  save();
+  renderProps();
+  rescanTranslations();
+  spell.notify();
+  toast(v ? `Traducción activada: ${pairLabel(parsePair(v))}.` : 'Traducción desactivada en esta página.');
+}
 
 // ---------- índice ----------
 let headings = [];

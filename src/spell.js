@@ -66,12 +66,19 @@ export const spell = {
     }
   },
 
+  // Idiomas extra de la página abierta (los de su propiedad "traduccion"); lo define main.js
+  pageLangs: () => [],
+
   async check(words) {
     if (!this.ready) this.init();
     await this.ready;
+    const also = this.pageLangs().filter((c) => LANGS[c] && !this.langs.includes(c));
+    const tag = also.sort().join(',');
+    if (tag !== this.cacheTag) { this.cache.clear(); this.cacheTag = tag; }
     const unknown = words.filter((w) => !this.cache.has(w));
     if (unknown.length) {
-      const r = await this.call({ type: 'check', words: unknown });
+      const need = Object.fromEntries(also.map((c) => [c, { aff: abs(`diccionarios/${c}.aff`), dic: abs(`diccionarios/${c}.dic`) }]));
+      const r = await this.call({ type: 'check', words: unknown, need });
       const bad = new Set(r.bad || []);
       unknown.forEach((w) => this.cache.set(w, !bad.has(w)));
     }
@@ -81,6 +88,15 @@ export const spell = {
   async suggest(word) {
     await this.ready;
     return (await this.call({ type: 'suggest', word })).list || [];
+  },
+
+  // { langs: idiomas donde la palabra es válida, loaded: idiomas cargados }
+  async which(word, codes = []) {
+    if (!this.ready) this.init();
+    await this.ready;
+    const need = Object.fromEntries(codes.map((c) => [c, { aff: abs(`diccionarios/${c}.aff`), dic: abs(`diccionarios/${c}.dic`) }]));
+    const r = await this.call({ type: 'which', word, need });
+    return { langs: r.langs || [], loaded: r.loaded || [] };
   },
 
   async savePersonal() {

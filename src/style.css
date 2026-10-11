@@ -284,6 +284,18 @@ math-field::part(virtual-keyboard-toggle) { display: none; }
 .pd-sec h3 { margin: 0; font: 600 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--accent); }
 .pd-side .pf-field { flex: 1 1 120px; }
 
+/* ---------- traducción en línea ("hallo:" → hola) ---------- */
+.trad-ghost { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 2px 4px; margin-left: 8px; font-family: var(--sans); font-size: .9em; color: var(--accent); user-select: none; }
+.tg-arrow { color: var(--muted); }
+.tg-opt { border: 0; background: none; padding: 0 3px; border-radius: 4px; cursor: pointer; color: var(--muted); font: inherit; }
+.tg-opt.main { color: var(--accent); font-weight: 600; font-family: var(--serif); font-size: 1.08em; }
+.tg-opt:hover { background: var(--accent-soft); color: var(--accent); }
+.tg-sep { color: var(--rule); }
+.tg-note { font: 11px var(--mono); color: var(--muted); border: 1px solid var(--rule); border-radius: 999px; padding: 0 6px; margin-left: 4px; }
+.tg-wait { color: var(--muted); font-style: italic; }
+.trad-ghost kbd { font-size: 10px; margin-left: 6px; color: var(--muted); }
+.trad-row select { font: 13px var(--sans); color: var(--ink); background: var(--inset); border: 1px solid var(--rule); border-radius: 5px; padding: 4px 6px; }
+
 /* ---------- ortografía ---------- */
 .spell-err { text-decoration: underline wavy var(--bad); text-decoration-thickness: 1.5px; text-decoration-skip-ink: none; text-underline-offset: 3px; }
 .tb-spell { font-weight: 600; text-decoration: underline wavy var(--bad); text-decoration-thickness: 1px; text-underline-offset: 3px; }
