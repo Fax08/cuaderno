@@ -14,6 +14,8 @@ const SECTIONS = [
     ['<kbd>/</kbd>', 'Menú para insertar: títulos, ecuación, gráfico, tabla, imagen, video…'],
     ['<code>/t</code> + espacio', 'Desplegable (toggle): escribí el título y Enter para escribir adentro. Dos Enter en un renglón vacío salen del desplegable. La flechita lo abre y lo cierra.'],
     ['<code>/tabla_pron</code>', 'Solo en páginas de alemán: tabla centrada con los pronombres (ich, du, er / sie / es…) y una columna para la conjugación. <code>/tabla_pron_2</code> (hasta _5) agrega más columnas.'],
+    ['<b>Ω Caracteres</b>', 'Activa un panel a la derecha con letras griegas, subíndices y superíndices, operadores, flechas, unidades y letras del alemán y del español, para el texto común. Se insertan donde está el cursor.'],
+    ['<kbd>Ctrl</kbd>+<kbd>,</kbd> y <kbd>Ctrl</kbd>+<kbd>.</kbd>', 'Subíndice y superíndice en el texto (σ<sub>xx</sub>, m<sup>2</sup>). Se apaga con la misma tecla.'],
     ['<b>A▾</b> en la barra', 'Color de letra y resaltado del texto seleccionado.'],
     ['<b>abc▾</b> en la barra', 'Ortografía: prenderla o apagarla y elegir idiomas (español siempre; inglés y alemán opcionales). Clic derecho sobre una palabra subrayada para ver sugerencias o agregarla al diccionario personal.'],
     ['<kbd>Ctrl</kbd>+<kbd>M</kbd>', 'Ecuación dentro del texto. También escribiendo <code>$x^2$</code>.'],

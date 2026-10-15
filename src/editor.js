@@ -17,6 +17,9 @@ import { createTranslate, translateSelection } from './translate-ext.js';
 import { showGoogleKeyDialog } from './google-key.js';
 import { Toggle, ToggleSummary, ToggleContent } from './details.js';
 import { createPronTable } from './pron-table.js';
+import { Subscript } from '@tiptap/extension-subscript';
+import { Superscript } from '@tiptap/extension-superscript';
+import { charPanel } from './charpanel.js';
 import { PAIRS, pairLabel, googleKey } from './translate.js';
 import { engine } from './calc.js';
 
@@ -95,6 +98,8 @@ export function createEditor({ element, getPageDir, onChange, actions, getPair =
       TaskItem.configure({ nested: true }),
       TightTaskLists,
       Toggle,
+      Subscript,
+      Superscript,
       createPronTable({ getPair, notify: (m, k) => actions.notify(m, k) }),
       ToggleSummary,
       ToggleContent,
@@ -290,6 +295,7 @@ function createToolbar(editor, actions, getPair) {
       B('eqi', 'x² En texto', 'Ecuación dentro del texto (Ctrl+M)', () => editor.chain().focus().insertMathInline().run()),
       B('plot', 'Gráfico', 'Gráfico 2D o 3D', () => editor.chain().focus().insertPlot({ tipo: '2d' }).run()),
       B('lock', lockLabel(), '', () => { mathLock.set(!mathLock.locked); refresh(); }, () => mathLock.locked),
+      B('chars', 'Ω Caracteres', 'Caracteres especiales para el texto (griegas, subíndices, símbolos, ä ö ü…) en la columna de la derecha', () => { charPanel.set(!charPanel.enabled); refresh(); }, () => charPanel.enabled),
     ],
     [
       B('undo', '↶', 'Deshacer (Ctrl+Z)', () => editor.chain().focus().undo().run()),
@@ -386,6 +392,7 @@ function createToolbar(editor, actions, getPair) {
 
   const tableGroup = el.querySelector('.tb-table');
   const lockBtn = el.querySelector('[data-id="lock"]');
+  charPanel.listeners.add(() => refresh());
   function refresh() {
     lockBtn.innerHTML = lockLabel();
     lockBtn.title = mathLock.locked

@@ -19,6 +19,7 @@ import { ask, toast, esc } from './ui.js';
 import { scanMateria, resolveDuda, renderMateria, renderInicio } from './dashboard.js';
 import { showHelp } from './help.js';
 import { createSymbolPanel } from './symbols.js';
+import { createCharPanel } from './charpanel.js';
 import { startReview, loadStore, parseCards } from './repaso.js';
 import { createSearch, revealText } from './search.js';
 import { spell } from './spell.js';
@@ -137,6 +138,7 @@ const editor = createEditor({
 });
 $('toolbarSlot').appendChild(editor.toolbarElement);
 window.cuaderno = { editor }; // para depurar desde la consola
+const chars = createCharPanel(document.querySelector('.outline'), editor, () => !!S.page);
 $('imgInput').addEventListener('change', (e) => { [...e.target.files].forEach(actions.insertImageFile); e.target.value = ''; });
 
 // Ctrl+clic abre links
@@ -234,6 +236,7 @@ async function closePage() {
   $('toolbarSlot').hidden = true;
   $('outline').innerHTML = '';
   setStatus('');
+  chars.update();
 }
 
 async function showDash(kind, path) {
@@ -533,6 +536,7 @@ async function openPage(path, query) {
     setStatus('Guardado');
     document.title = `${label(node.name)} · Cuaderno`;
     ls.set('cuaderno.last', path);
+    chars.update();
     if (query) setTimeout(() => revealText(editor, query), 80);
     if (window.innerWidth < 900) { appEl.dataset.sidebar = 'closed'; }
   } catch (e) {
