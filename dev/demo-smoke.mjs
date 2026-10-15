@@ -94,22 +94,22 @@ await wait(200);
 console.log('BOTÓN TRAS TOCARLO:', await page.$eval('[data-id="lock"]', (b) => b.textContent.trim()));
 await target.click();
 await wait(700);
-const panelVisible = await page.$eval('.sym-panel', (el) => !el.hidden);
+const panelVisible = await page.$eval('.sym-panel:not(.char-panel)', (el) => !el.hidden);
 console.log('PANEL DE SÍMBOLOS VISIBLE AL EDITAR:', panelVisible);
 await page.screenshot({ path: `${shots}/demo-simbolos.png` });
-await page.click('.sym-tab[data-tab="0"]');
+await page.click('.sym-panel:not(.char-panel) .sym-tab[data-tab="0"]');
 await page.keyboard.press('End');
-await page.click('.sym-btn[data-i="0"]');
+await page.click('.sym-panel:not(.char-panel) .sym-btn[data-i="0"]');
 await wait(300);
 const val = await page.$eval('math-field', (mf) => mf.value);
 console.log('INSERTÓ α DESDE EL PANEL:', val.includes('\\alpha'), '|', val);
-await page.click('.sym-x');
+await page.click('.sym-panel:not(.char-panel) .sym-x');
 await wait(200);
-console.log('PANEL CERRADO (colapsado):', await page.$eval('.sym-panel', (el) => el.classList.contains('collapsed')));
+console.log('PANEL CERRADO (colapsado):', await page.$eval('.sym-panel:not(.char-panel)', (el) => el.classList.contains('collapsed')));
 await page.keyboard.down('Control'); await page.keyboard.press('z'); await page.keyboard.up('Control');
 await page.keyboard.press('Escape');
 await wait(500);
-console.log('PANEL OCULTO AL SALIR:', await page.$eval('.sym-panel', (el) => el.hidden));
+console.log('PANEL OCULTO AL SALIR:', await page.$eval('.sym-panel:not(.char-panel)', (el) => el.hidden));
 
 // Color de letra desde la barra
 await page.evaluate(() => {
