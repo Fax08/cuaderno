@@ -69,6 +69,15 @@ const cases = [
   ['\\operatorname{atan2}\\left(3,4\\right)=deg', '36.87^{\\circ}'],
   ['\\cos\\left(\\frac{\\pi}{3}\\right)=', '0.5'],
   ['\\sin\\left(\\frac{\\pi}{2}\\right)\\cdot\\cos0=', '1'],
+  // autovalores / autovectores (tensiones y direcciones principales)
+  ['T_{s}\\coloneq\\begin{bmatrix}18 & 0 & 24\\\\ 0 & -50 & 0\\\\ 24 & 0 & 32\\end{bmatrix}', 'def'],
+  ['\\operatorname{autovalores}\\left(T_{s}\\right)=', '\\begin{bmatrix} 50 \\\\ 0 \\\\ -50 \\end{bmatrix}'],
+  ['autovalores\\left(T_{s}\\right)=', '\\begin{bmatrix} 50 \\\\ 0 \\\\ -50 \\end{bmatrix}'],
+  ['\\operatorname{autovectores}\\left(T_{s}\\right)=', '\\begin{bmatrix} 0.6 & 0.8 & 0 \\\\ 0 & 0 & 1 \\\\ 0.8 & -0.6 & 0 \\end{bmatrix}'],
+  ['\\operatorname{principales}\\left(T_{s}\\right)=', '\\begin{bmatrix} 50 & 0 & 0 \\\\ 0 & 0 & 0 \\\\ 0 & 0 & -50 \\end{bmatrix}'],
+  ['T_{u}\\coloneq\\begin{bmatrix}18 & 0 & 24\\\\ 0 & -50 & 0\\\\ 24 & 0 & 32\\end{bmatrix}MPa', 'def'],
+  ['\\operatorname{autovalores}\\left(T_{u}\\right)=', '\\begin{bmatrix} 50 \\\\ 0 \\\\ -50 \\end{bmatrix}\\,\\mathrm{MPa}'],
+  ['\\operatorname{autovalores}\\left(\\begin{bmatrix}18 & 0 & 24\\\\ 0 & -50 & 0\\\\ 0 & 0 & 32\\end{bmatrix}\\right)=', '\\begin{bmatrix} 32 \\\\ 18 \\\\ -50 \\end{bmatrix}'],
   // vectores: producto escalar (·), vectorial (×) y módulo
   ['a\\coloneq\\begin{bmatrix}1\\\\ 2\\\\ 3\\end{bmatrix}', 'def'],
   ['b\\coloneq\\begin{bmatrix}4\\\\ 5\\\\ 6\\end{bmatrix}', 'def'],

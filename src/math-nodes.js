@@ -28,6 +28,7 @@ export function renderLatex(latex, displayMode) {
 
 // Solo para mostrar: las unidades van rectas (kN, MPa, m) como en MathCad; el archivo no cambia.
 export function uprightUnits(latex) {
+  latex = latex.replace(/(?<![\\A-Za-z])(autovalores|autovectores|principales)(?![A-Za-z])/g, '\\operatorname{$1}');
   let out = latex.replace(/(?<![\\A-Za-z])([A-Za-z]{2,})(?![A-Za-z])/g, (w, run, idx, s) => {
     if (!TARGET_UNITS.has(run)) return w;
     if (/_\{?$/.test(s.slice(0, idx)) || /\\(?:mathrm|text|operatorname)\{$/.test(s.slice(0, idx))) return w;

@@ -46,6 +46,7 @@ const SECTIONS = [
     ['Vectores', 'Con vectores columna: producto escalar a·b (tecla * o botón a·b), producto vectorial a×b (escribí xx o botón a×b; 3 componentes) y módulo |a|. Entre matrices, · es el producto común.'],
     ['Trigonometría', 'sin, cos, tan, arcsin, atan2… se escriben directo (sin → seno). Los ángulos con grados: 30° (escribí 30deg o el botón °); sin unidad son radianes. sin^2 θ funciona, y arcsin(0.5) = deg da el resultado en grados.'],
     ['Resolver', 'Menú / → Resolver ecuaciones. Escribís las incógnitas con un valor inicial (t = 1, a = 1; con unidades: R = 10 kN) y las ecuaciones (det(J) = 0, J·d = 0…). Busca desde muchos puntos de partida, lista las soluciones distintas y la elegida queda definida en toda la página.'],
+    ['Tensiones principales', 'Menú / → Tensiones principales (autovalores). Escribís la matriz (σ o la matriz completa) y muestra la ecuación característica, los invariantes, las tensiones principales λ₁ ≥ λ₂ ≥ λ₃, los cosenos directores (l² + m² + n² = 1) y la matriz principal. Quedan definidos λ₁, λ₂… y n₁, n₂…. En cualquier fórmula: autovalores(σ), autovectores(σ) (una columna por dirección) y principales(σ).'],
     ['Orden', 'Se calcula de arriba hacia abajo: usá una variable después de definirla.'],
     ['Sin “=”', 'Una ecuación sin “:=” ni “=” al final es solo una fórmula escrita; no se calcula.'],
   ]],

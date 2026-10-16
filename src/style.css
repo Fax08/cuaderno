@@ -295,7 +295,23 @@ math-field::part(virtual-keyboard-toggle) { display: none; }
 .gk-status[data-kind="bad"] { color: var(--bad); }
 .dialog-text.small { font-size: 12px; }
 
+/* ---------- bloque Tensiones principales ---------- */
+.eg-row { display: grid; grid-template-columns: minmax(0, 1fr) 110px 110px; gap: 10px; align-items: end; }
+@media (max-width: 700px) { .eg-row { grid-template-columns: 1fr 1fr; } .eg-mat { grid-column: 1 / -1; } }
+.eg-mat math-field { width: 100%; }
+.eg-row input { width: 100%; min-width: 0; }
+.eg-mat { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.eg-name input { font: 15px var(--serif); color: var(--ink); background: var(--inset); border: 1px solid var(--rule); border-radius: 5px; padding: 6px 8px; }
+.eg-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; font-size: 15px; }
+.eg-label { font: 500 11px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--muted); }
+.eg-table td.eg-val { font-weight: 600; }
+.eg-table td.eg-check { font: 12px var(--mono); color: var(--good); }
+.eg-mats { display: flex; flex-wrap: wrap; gap: 10px 32px; }
+.eg-mats > div { display: grid; gap: 4px; font-size: 15px; }
+
 /* ---------- bloque Resolver ---------- */
+.solver-node, .eigen-node { border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--surface); margin: 1em 0; padding: 10px 14px 12px; font-family: var(--sans); display: grid; gap: 8px; }
+.eigen-node.selected { outline: 2px solid var(--accent); }
 .solver-node { border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--surface); margin: 1em 0; padding: 10px 14px 12px; font-family: var(--sans); display: grid; gap: 8px; }
 .solver-node.selected { outline: 2px solid var(--accent); }
 .sv-head { display: flex; align-items: baseline; gap: 10px; }

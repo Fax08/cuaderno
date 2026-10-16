@@ -121,6 +121,24 @@ export function serializeSolver(a) {
   return lines.join('\n');
 }
 
+// ---------- bloque Tensiones principales (```autovalores) ----------
+export const EIGEN_DEFAULTS = { matriz: '', valores: 'λ', vectores: 'n' };
+
+export function parseEigenSource(src) {
+  const a = { ...EIGEN_DEFAULTS };
+  for (const line of src.split(/\r?\n/)) {
+    const i = line.indexOf(':');
+    if (i < 0) continue;
+    const k = line.slice(0, i).trim();
+    if (k in a) a[k] = line.slice(i + 1).trim();
+  }
+  return a;
+}
+
+export function serializeEigen(a) {
+  return [`matriz: ${a.matriz || ''}`, `valores: ${a.valores || 'λ'}`, `vectores: ${a.vectores || 'n'}`].join('\n');
+}
+
 export function markdownItPlot(md) {
   if (md.__cuadernoPlot) return;
   md.__cuadernoPlot = true;
@@ -128,6 +146,7 @@ export function markdownItPlot(md) {
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const t = tokens[idx];
     if (t.info.trim() === 'plot') return `<div data-type="plot" data-src="${escAttr(t.content)}"></div>\n`;
+    if (t.info.trim() === 'autovalores') return `<div data-type="eigen" data-src="${escAttr(t.content)}"></div>\n`;
     if (t.info.trim() === 'resolver') return `<div data-type="solver" data-src="${escAttr(t.content)}"></div>\n`;
     return orig ? orig(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options);
   };

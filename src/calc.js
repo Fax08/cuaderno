@@ -58,6 +58,54 @@ const vabs = (v) => {
 };
 math.import({ vdot, vcross, vabs }, { override: true });
 
+// ---------- autovalores y autovectores (tensiones y direcciones principales) ----------
+// Devuelve los autovalores ordenados de mayor a menor (σ₁ ≥ σ₂ ≥ σ₃), los autovectores unitarios
+// (cosenos directores, l² + m² + n² = 1) y los invariantes. Acepta matrices con unidades (MPa).
+export function eigenAnalysis(A) {
+  let arr = math.isMatrix(A) ? A.toArray() : A;
+  if (!Array.isArray(arr) || !Array.isArray(arr[0])) throw new CalcError('Hace falta una matriz cuadrada');
+  const n = arr.length;
+  if (arr.some((r) => r.length !== n)) throw new CalcError(`La matriz tiene que ser cuadrada (es ${n}×${arr[0].length})`);
+  // Unidades: se pasa todo a la unidad de la primera componente con unidad (los números sueltos, como 0, valen igual)
+  const withUnit = arr.flat().find((x) => math.isUnit(x) && x.value !== 0) || arr.flat().find((x) => math.isUnit(x));
+  const unit = withUnit ? autoUnit(withUnit).formatUnits() : null;
+  const num = arr.map((r) => r.map((x) => {
+    if (math.isUnit(x)) { try { return x.toNumber(unit); } catch { throw new CalcError('Las componentes de la matriz tienen unidades distintas'); } }
+    if (typeof x !== 'number') throw new CalcError('La matriz tiene que ser numérica');
+    return x;
+  }));
+  const big = Math.max(...num.flat().map(Math.abs), 1e-300);
+  const symmetric = num.every((r, i) => r.every((v, j) => Math.abs(v - num[j][i]) <= 1e-9 * big));
+  let res;
+  try { res = math.eigs(num); } catch (e) { throw new CalcError(`No pude calcular los autovalores: ${e.message}`); }
+  const items = res.eigenvectors.map((e) => {
+    const value = typeof e.value === 'number' ? e.value : (math.isComplex(e.value) && Math.abs(e.value.im) < 1e-9 * big ? e.value.re : NaN);
+    let vec = (Array.isArray(e.vector) ? e.vector : e.vector.toArray()).map((x) => (typeof x === 'number' ? x : (math.isComplex(x) ? x.re : Number(x))));
+    const len = Math.hypot(...vec) || 1;
+    vec = vec.map((x) => x / len);
+    const first = vec.find((x) => Math.abs(x) > 1e-9);
+    if (first < 0) vec = vec.map((x) => -x);
+    vec = vec.map((x) => (Math.abs(x) < 1e-12 ? 0 : x));
+    return { value: Math.abs(value) < 1e-10 * big ? 0 : value, vector: vec };
+  });
+  if (items.some((it) => !Number.isFinite(it.value))) throw new CalcError('La matriz tiene autovalores complejos (no es simétrica): no hay tensiones principales reales');
+  items.sort((a, b) => b.value - a.value);
+  const tr = num.reduce((a, r, i) => a + r[i], 0);
+  const A2 = math.multiply(num, num);
+  const I2 = (tr * tr - A2.reduce((a, r, i) => a + r[i], 0)) / 2;
+  const I3 = math.det(num);
+  return { n, unit, symmetric, values: items.map((it) => it.value), vectors: items.map((it) => it.vector), invariants: [tr, I2, Math.abs(I3) < 1e-10 * big ** 3 ? 0 : I3] };
+}
+const withUnitVal = (v, unit) => (unit ? math.unit(v, unit) : v);
+math.import({
+  // autovalores(σ): vector columna (σ₁ ≥ σ₂ ≥ σ₃)
+  autovalores: (A) => { const e = eigenAnalysis(A); return math.matrix(e.values.map((v) => [withUnitVal(v, e.unit)])); },
+  // autovectores(σ): matriz cuyas columnas son las direcciones principales (unitarias)
+  autovectores: (A) => { const e = eigenAnalysis(A); return math.matrix(e.vectors[0].map((_, i) => e.vectors.map((v) => v[i]))); },
+  // principales(σ): matriz diagonal de tensiones principales
+  principales: (A) => { const e = eigenAnalysis(A); return math.matrix(e.values.map((v, i) => e.values.map((_, j) => (i === j ? withUnitVal(v, e.unit) : withUnitVal(0, e.unit))))); },
+}, { override: true });
+
 // ---------- contexto: variables y funciones definidas hasta un punto de la página ----------
 export class Ctx {
   constructor(scope = {}, funcs = new Set()) { this.scope = scope; this.funcs = funcs; }
@@ -80,7 +128,8 @@ const FUNCS = {
   ln: 'log', log: 'log10', exp: 'exp', sqrt: 'sqrt', abs: 'abs',
   det: 'det', tr: 'trace', traza: 'trace', trace: 'trace', inv: 'inv', transpose: 'transpose', diag: 'diag', norm: 'norm',
   max: 'max', min: 'min', round: 'round', floor: 'floor', ceil: 'ceil', sgn: 'sign', sign: 'sign',
-  cross: 'cross', dot: 'dot', mod: 'mod', atan2: 'atan2', arccot: 'acot', acot: 'acot',
+  cross: 'cross', dot: 'dot', mod: 'mod', atan2: 'atan2',
+  autovalores: 'autovalores', autovectores: 'autovectores', principales: 'principales', eigvals: 'autovalores', eigvecs: 'autovectores', arccot: 'acot', acot: 'acot',
   arcsinh: 'asinh', arccosh: 'acosh', arctanh: 'atanh', arsinh: 'asinh', arcosh: 'acosh', artanh: 'atanh',
 };
 // sin^{-1} x = arcsin x
@@ -787,6 +836,24 @@ export function samplePlot(spec, ctx) {
   return { tipo: '2d', x: xs.map((x) => toNum(x, xUnit)), traces, xUnit, yUnit };
 }
 
+// Bloque "Tensiones principales": analiza la matriz y define λ₁…, n₁… para el resto de la página
+export function runEigenBlock(attrs, ctx) {
+  const src = (attrs.matriz || '').trim();
+  if (!src) return { kind: 'eigen', error: 'Escribí la matriz o el nombre de la variable (por ejemplo σ)' };
+  try {
+    const A = math.evaluate(convert(src, ctx), ctx.scope);
+    const e = eigenAnalysis(A);
+    const toName = (raw, def) => { try { return parseUnknowns(raw || def)[0].name; } catch { return def; } };
+    const vName = toName(attrs.valores, 'lambda');
+    const dName = toName(attrs.vectores, 'n');
+    e.values.forEach((v, i) => ctx.set(`${vName}_${i + 1}`, withUnitVal(v, e.unit)));
+    e.vectors.forEach((v, i) => ctx.set(`${dName}_${i + 1}`, math.matrix(v.map((x) => [x]))));
+    return { kind: 'eigen', ...e, valuesName: vName, vectorsName: dName };
+  } catch (err) {
+    return { kind: 'eigen', error: errText(err) };
+  }
+}
+
 // ---------- motor de la página ----------
 // Recorre las ecuaciones en orden y guarda los resultados por posición.
 // ---------- resolvedor (bloque "Resolver", como Given/Find de MathCad) ----------
@@ -1039,6 +1106,7 @@ export const engine = {
       }
       if (t === 'plot') { snaps.set(pos, ctx.snapshot()); return false; }
       if (t === 'solver') return false;
+      if (t === 'eigen') { results.set(pos, runEigenBlock(node.attrs, ctx)); return false; }
       return true;
     });
     this.results = results;

@@ -13,6 +13,7 @@ import { resolveAsset } from './fs.js';
 import { MathInline, MathBlock, mathLock } from './math-nodes.js';
 import { Plot } from './plot-node.js';
 import { Solver } from './solver-node.js';
+import { Eigen } from './eigen-node.js';
 import { Spellcheck, spell, spellPanelHTML, showPersonalDictionary } from './spell.js';
 import { createTranslate, translateSelection } from './translate-ext.js';
 import { showGoogleKeyDialog } from './google-key.js';
@@ -114,6 +115,7 @@ export function createEditor({ element, getPageDir, onChange, actions, getPair =
       MathBlock,
       Plot,
       Solver,
+      Eigen,
       Placeholder.configure({
         includeChildren: true,
         placeholder: ({ node }) => (node.type.name === 'detailsSummary' ? 'Título del desplegable (Enter para escribir adentro)' : 'Escribí, o tocá / para insertar un título, tabla, imagen…'),
@@ -166,6 +168,7 @@ function blockCommands(actions, getPair = () => null) {
     { id: 'p', label: 'Texto', hint: '', keys: 'texto parrafo normal', run: (c) => c.setParagraph() },
     { id: 'eq', label: 'Ecuación', hint: '$$', keys: 'ecuacion formula math calculo latex variable', run: (c) => c.insertMathBlock() },
     { id: 'eqi', label: 'Ecuación en el texto', hint: 'Ctrl+M', keys: 'ecuacion en linea inline formula math', run: (c) => c.insertMathInline() },
+    { id: 'eigen', label: 'Tensiones principales (autovalores)', hint: 'eig', keys: 'autovalores autovectores tensiones principales direcciones cosenos directores eigen lambda', run: (c) => c.insertEigen() },
     { id: 'solver', label: 'Resolver ecuaciones', hint: 'solver', keys: 'resolver solver sistema ecuaciones incognitas despejar find given', run: (c) => c.insertSolver() },
     { id: 'plot2', label: 'Gráfico 2D', hint: 'y(x)', keys: 'grafico plot funcion curva 2d', run: (c) => c.insertPlot({ tipo: '2d' }) },
     { id: 'plot3', label: 'Gráfico 3D', hint: 'z(x,y)', keys: 'grafico plot superficie 3d', run: (c) => c.insertPlot({ tipo: '3d', xmin: '-3', xmax: '3', ymin: '-3', ymax: '3' }) },
