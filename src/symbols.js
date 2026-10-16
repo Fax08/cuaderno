@@ -123,6 +123,27 @@ const GROUPS = [
     ['\\mathrm{rad}', '\\mathrm{rad}', 'radianes'],
   ]],
 ];
+// Trigonometría (pestaña "Trig" del cuadro de estructuras); se agrega como grupo 6
+GROUPS.push(['Trigonometría', [
+  ['\\sin\\left(#0\\right)', '\\sin', 'Seno (o escribí sin)'],
+  ['\\cos\\left(#0\\right)', '\\cos', 'Coseno (cos)'],
+  ['\\tan\\left(#0\\right)', '\\tan', 'Tangente (tan)'],
+  ['\\cot\\left(#0\\right)', '\\cot', 'Cotangente'],
+  ['\\sec\\left(#0\\right)', '\\sec', 'Secante'],
+  ['\\csc\\left(#0\\right)', '\\csc', 'Cosecante'],
+  ['\\arcsin\\left(#0\\right)', '\\arcsin', 'Arcoseno (da radianes; poné = deg para grados)'],
+  ['\\arccos\\left(#0\\right)', '\\arccos', 'Arcocoseno'],
+  ['\\arctan\\left(#0\\right)', '\\arctan', 'Arcotangente'],
+  ['\\operatorname{atan2}\\left(#0,#?\\right)', '\\operatorname{atan2}', 'Ángulo de un vector (y, x)'],
+  ['\\sin^2\\left(#0\\right)', '\\sin^2', 'Seno al cuadrado'],
+  ['\\cos^2\\left(#0\\right)', '\\cos^2', 'Coseno al cuadrado'],
+  ['\\sinh\\left(#0\\right)', '\\sinh', 'Seno hiperbólico'],
+  ['\\cosh\\left(#0\\right)', '\\cosh', 'Coseno hiperbólico'],
+  ['\\tanh\\left(#0\\right)', '\\tanh', 'Tangente hiperbólica'],
+  ['#0\\degree', '30^{\\circ}', 'Grados: 30°'],
+  ['\\pi', '\\pi', 'Pi'],
+  ['\\mathrm{rad}', '\\mathrm{rad}', 'Radianes'],
+]]);
 
 const ls = {
   get(k, d) { try { const v = localStorage.getItem(k); return v === null ? d : JSON.parse(v); } catch { return d; } },
@@ -136,7 +157,7 @@ export function createSymbolPanel(host) {
   el.setAttribute('aria-label', 'Símbolos para ecuaciones');
   // Dos cuadros a la vez: símbolos arriba y estructuras (matrices, fracciones, integrales…) abajo
   const TOP = [[0, 'Griegas'], [3, 'Operadores'], [5, 'Unidades']];
-  const BOTTOM = [[4, 'Matrices'], [1, 'Básicas'], [2, 'Cálculo']];
+  const BOTTOM = [[4, 'Matrices'], [1, 'Básicas'], [6, 'Trig'], [2, 'Cálculo']];
   let tabTop = Math.min(ls.get('cuaderno.sym.top', 0), TOP.length - 1);
   let tabBot = Math.min(ls.get('cuaderno.sym.bottom', 0), BOTTOM.length - 1);
   let collapsed = ls.get('cuaderno.sym.collapsed', false);

@@ -80,8 +80,11 @@ const FUNCS = {
   ln: 'log', log: 'log10', exp: 'exp', sqrt: 'sqrt', abs: 'abs',
   det: 'det', tr: 'trace', traza: 'trace', trace: 'trace', inv: 'inv', transpose: 'transpose', diag: 'diag', norm: 'norm',
   max: 'max', min: 'min', round: 'round', floor: 'floor', ceil: 'ceil', sgn: 'sign', sign: 'sign',
-  cross: 'cross', dot: 'dot', mod: 'mod',
+  cross: 'cross', dot: 'dot', mod: 'mod', atan2: 'atan2', arccot: 'acot', acot: 'acot',
+  arcsinh: 'asinh', arccosh: 'acosh', arctanh: 'atanh', arsinh: 'asinh', arcosh: 'acosh', artanh: 'atanh',
 };
+// sin^{-1} x = arcsin x
+const INVERSE = { sin: 'asin', cos: 'acos', tan: 'atan', cot: 'acot', sec: 'asec', csc: 'acsc', sinh: 'asinh', cosh: 'acosh', tanh: 'atanh' };
 
 const DECORATORS = new Set(['mathbf', 'boldsymbol', 'bm', 'vec', 'hat', 'bar', 'tilde', 'mathbfit', 'mathit', 'overline', 'underline', 'mathcal', 'mathbb']);
 const UPRIGHT = new Set(['operatorname', 'mathrm', 'text', 'textrm', 'mathsf', 'textit', 'textbf', 'mbox']);
@@ -105,7 +108,12 @@ function pushTok(toks, tok) {
   const prev = toks[toks.length - 1];
   if (tok.k === 'val' && prev && prev.k === 'fn') {
     toks.pop();
-    return pushTok(toks, { k: 'val', s: `${prev.s}${tok.paren ? tok.s : `(${tok.s})`}`, paren: true });
+    let fn = prev.s;
+    if (prev.pow === '-1' && INVERSE[fn]) fn = INVERSE[fn];
+    const call = `${fn}${tok.paren ? tok.s : `(${tok.s})`}`;
+    const out = { k: 'val', s: prev.pow && prev.pow !== '-1' ? `(${call}) ^ (${prev.powConv})` : call, paren: true };
+    if (!tok.paren && !prev.pow) { out.fn = fn; out.fnArg = tok.s; } // "tan45" seguido de "°"
+    return pushTok(toks, out);
   }
   if ((tok.k === 'val' || tok.k === 'fn') && prev && prev.k === 'val') toks.push({ k: 'op', s: '*' });
   toks.push(tok);
@@ -289,9 +297,25 @@ class Conv {
     pushTok(frames[frames.length - 1].toks, tok);
   }
 
+  // "tan45°": el símbolo de grados va con el ángulo, no con el resultado
+  degreeOnArg(last) {
+    if (!last || last.fnArg === undefined) return false;
+    last.s = `${last.fn}((${last.fnArg}) * deg)`;
+    delete last.fnArg;
+    this.sawUnit = true;
+    return true;
+  }
+
   power(toks) {
     const arg = this.readArg().trim();
     const last = toks[toks.length - 1];
+    // sin^2 x  ·  sin^{-1} x
+    if (last && last.k === 'fn') {
+      last.pow = arg;
+      if (arg !== '-1') last.powConv = this.sub(arg);
+      return;
+    }
+    if (arg === '\\circ' && this.degreeOnArg(last)) return;
     if (!last || last.k !== 'val') this.err('Hay un exponente sin base');
     if (['T', '\\top', '\\intercal', '\\mathsf{T}', '\\mathrm{T}', 't'].includes(arg) && (last.matrix || arg !== 't')) {
       last.s = `transpose(${last.s})`; last.paren = true; return;
@@ -373,7 +397,7 @@ class Conv {
       case 'rvert': case 'rVert': return this.closeFrame(frames);
       case 'lbrack': case 'lbrace': case 'langle': case 'lparen': case '{': frames.push({ type: 'paren', toks: [] }); return undefined;
       case 'rbrack': case 'rbrace': case 'rangle': case 'rparen': case '}': return this.closeFrame(frames);
-      case 'degree': return push(this.unitTok('deg'));
+      case 'degree': if (this.degreeOnArg(top()[top().length - 1])) return undefined; return push(this.unitTok('deg'));
       case '%': return push({ k: 'val', s: '0.01' });
       case 'infty': return push({ k: 'val', s: 'Infinity' });
       case 'exponentialE': return push({ k: 'val', s: 'e' });
@@ -525,7 +549,12 @@ function unitValueLatex(u) {
 }
 
 export function valueToLatex(v, target) {
-  if (typeof v === 'number') return fmtNum(v);
+  if (typeof v === 'number') {
+    if (target) {
+      try { if (math.unit(target).equalBase(math.unit('rad'))) return unitValueLatex(math.unit(v, 'rad').to(target)); } catch { /* sin conversión */ }
+    }
+    return fmtNum(v);
+  }
   if (typeof v === 'boolean') return v ? '\\text{verdadero}' : '\\text{falso}';
   if (typeof v === 'function') return '\\text{función}';
   if (math.isUnit(v)) {

@@ -44,6 +44,7 @@ const SECTIONS = [
     ['Unidades', 'kN, MPa, kPa, GPa, cm, mm, m, kg, kgf, tf, s, deg (o <code>30deg</code> → 30°). Se escriben pegadas al número: <code>20cm^2</code>.'],
     ['Matrices', `${ex('K^{-1}=')} ${ex('\\det(K)=')} ${ex('K^{\\top}=')} ${ex('u \\coloneq K^{-1}\\cdot F =')}`],
     ['Vectores', 'Con vectores columna: producto escalar a·b (tecla * o botón a·b), producto vectorial a×b (escribí xx o botón a×b; 3 componentes) y módulo |a|. Entre matrices, · es el producto común.'],
+    ['Trigonometría', 'sin, cos, tan, arcsin, atan2… se escriben directo (sin → seno). Los ángulos con grados: 30° (escribí 30deg o el botón °); sin unidad son radianes. sin^2 θ funciona, y arcsin(0.5) = deg da el resultado en grados.'],
     ['Orden', 'Se calcula de arriba hacia abajo: usá una variable después de definirla.'],
     ['Sin “=”', 'Una ecuación sin “:=” ni “=” al final es solo una fórmula escrita; no se calcula.'],
   ]],

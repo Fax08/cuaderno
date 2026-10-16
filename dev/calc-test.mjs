@@ -57,6 +57,18 @@ const cases = [
   ["\\sigma'_{x}\\coloneq3MPa", 'def'],
   ["2\\sigma'_{x}=", '6\\,\\mathrm{MPa}'],
   ["z'=", 'error'],
+  // trigonometría
+  ['\\tan45^{\\circ}=', '1'],
+  ['\\tan45\\degree=', '1'],
+  ['\\phi\\coloneq30\\degree', 'def'],
+  ['\\sin^2\\phi+\\cos^2\\phi=', '1'],
+  ['\\sin^{2}\\left(\\phi\\right)=', '0.25'],
+  ['\\sin^{-1}\\left(0.5\\right)=deg', '30^{\\circ}'],
+  ['\\arcsin\\left(0.5\\right)=deg', '30^{\\circ}'],
+  ['\\arctan\\left(\\frac{3}{4}\\right)=deg', '36.87^{\\circ}'],
+  ['\\operatorname{atan2}\\left(3,4\\right)=deg', '36.87^{\\circ}'],
+  ['\\cos\\left(\\frac{\\pi}{3}\\right)=', '0.5'],
+  ['\\sin\\left(\\frac{\\pi}{2}\\right)\\cdot\\cos0=', '1'],
   // vectores: producto escalar (·), vectorial (×) y módulo
   ['a\\coloneq\\begin{bmatrix}1\\\\ 2\\\\ 3\\end{bmatrix}', 'def'],
   ['b\\coloneq\\begin{bmatrix}4\\\\ 5\\\\ 6\\end{bmatrix}', 'def'],
