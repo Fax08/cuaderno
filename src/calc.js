@@ -14,6 +14,50 @@ for (const [name, def] of [['tf', '9.80665 kN'], ['kgf', '9.80665 N']]) {
 
 export class CalcError extends Error {}
 
+// ---------- productos de vectores ----------
+// "·" entre dos vectores es el producto escalar; "×" entre dos vectores de 3 componentes es el
+// producto vectorial. Entre matrices o números se comportan como el producto de siempre.
+const vecShape = (v) => {
+  if (!math.isMatrix(v) && !Array.isArray(v)) return null;
+  const size = math.size(v).valueOf();
+  if (size.length === 1) return { n: size[0], kind: 'row1d' };
+  if (size.length === 2 && size[1] === 1) return { n: size[0], kind: 'col' };
+  if (size.length === 2 && size[0] === 1) return { n: size[1], kind: 'row' };
+  return null;
+};
+const flat = (v) => math.flatten(math.isMatrix(v) ? v.toArray() : v);
+const sumAll = (arr) => arr.reduce((acc, x) => (acc === null ? x : math.add(acc, x)), null);
+const vdot = (a, b) => {
+  const sa = vecShape(a), sb = vecShape(b);
+  if (sa && sb) {
+    if (sa.n !== sb.n) throw new CalcError(`Producto escalar: los vectores tienen ${sa.n} y ${sb.n} componentes`);
+    const x = flat(a), y = flat(b);
+    return sumAll(x.map((xi, i) => math.multiply(xi, y[i])));
+  }
+  return math.multiply(a, b);
+};
+const vcross = (a, b) => {
+  const sa = vecShape(a), sb = vecShape(b);
+  if (sa && sb) {
+    if (sa.n !== 3 || sb.n !== 3) throw new CalcError('El producto vectorial (×) necesita dos vectores de 3 componentes');
+    const [a1, a2, a3] = flat(a), [b1, b2, b3] = flat(b);
+    const c = [
+      math.subtract(math.multiply(a2, b3), math.multiply(a3, b2)),
+      math.subtract(math.multiply(a3, b1), math.multiply(a1, b3)),
+      math.subtract(math.multiply(a1, b2), math.multiply(a2, b1)),
+    ];
+    return math.matrix(sa.kind === 'col' ? c.map((x) => [x]) : sa.kind === 'row' ? [c] : c);
+  }
+  if (sa || sb) throw new CalcError('El producto vectorial (×) es entre dos vectores; para multiplicar por un número usá ·');
+  return math.multiply(a, b);
+};
+// |v| de un vector es su módulo; de un número, el valor absoluto
+const vabs = (v) => {
+  if (vecShape(v)) { const x = flat(v); return math.sqrt(sumAll(x.map((xi) => math.multiply(xi, xi)))); }
+  return math.abs(v);
+};
+math.import({ vdot, vcross, vabs }, { override: true });
+
 // ---------- contexto: variables y funciones definidas hasta un punto de la página ----------
 export class Ctx {
   constructor(scope = {}, funcs = new Set()) { this.scope = scope; this.funcs = funcs; }
@@ -68,7 +112,29 @@ function pushTok(toks, tok) {
 }
 const emit = (toks) => {
   if (toks.length && toks[toks.length - 1].k === 'fn') throw new CalcError('Falta el argumento de una función');
-  return toks.map((t) => t.s).join(' ');
+  if (!toks.some((t) => t.k === 'op' && t.kind)) return toks.map((t) => t.s).join(' ');
+  // Hay "·" o "×": se arma cada término a mano para convertirlos en vdot()/vcross()
+  let i = 0;
+  const factor = () => {
+    let s = '';
+    while (i < toks.length && toks[i].k === 'op' && (toks[i].s === '-' || toks[i].s === '+')) s += toks[i++].s;
+    if (i >= toks.length || toks[i].k !== 'val') throw new CalcError('Falta un término en la operación');
+    s += toks[i++].s;
+    while (i < toks.length && toks[i].k === 'op' && toks[i].s === '^') { s += ` ^ ${toks[i + 1].s}`; i += 2; }
+    return s;
+  };
+  const term = () => {
+    let acc = factor();
+    while (i < toks.length && toks[i].k === 'op' && (toks[i].s === '*' || toks[i].s === '/')) {
+      const op = toks[i++];
+      const f = factor();
+      acc = op.kind === 'dot' ? `vdot(${acc}, ${f})` : op.kind === 'cross' ? `vcross(${acc}, ${f})` : `(${acc}) ${op.s} (${f})`;
+    }
+    return acc;
+  };
+  let out = term();
+  while (i < toks.length) { const op = toks[i++]; out += ` ${op.s} ${term()}`; }
+  return out;
 };
 
 class Conv {
@@ -219,7 +285,7 @@ class Conv {
     const f = frames.pop();
     const inner = emit(f.toks);
     if (!inner.trim()) this.err('Hay un paréntesis vacío');
-    const tok = f.type === 'abs' ? { k: 'val', s: `abs(${inner})`, paren: true } : { k: 'val', s: `(${inner})`, paren: true, matrix: f.toks.length === 1 && f.toks[0].matrix };
+    const tok = f.type === 'abs' ? { k: 'val', s: `vabs(${inner})`, paren: true } : { k: 'val', s: `(${inner})`, paren: true, matrix: f.toks.length === 1 && f.toks[0].matrix };
     pushTok(frames[frames.length - 1].toks, tok);
   }
 
@@ -287,13 +353,15 @@ class Conv {
         const a = this.readArg();
         return push({ k: 'val', s: n ? `nthRoot(${this.sub(a)}, ${this.sub(n)})` : `sqrt(${this.sub(a)})`, paren: true });
       }
-      case 'cdot': case 'times': case 'ast': case 'bullet': return top().push({ k: 'op', s: '*' });
+      case 'cdot': case 'bullet': return top().push({ k: 'op', s: '*', kind: 'dot' });
+      case 'times': return top().push({ k: 'op', s: '*', kind: 'cross' });
+      case 'ast': return top().push({ k: 'op', s: '*' });
       case 'div': return top().push({ k: 'op', s: '/' });
       case 'pm': case 'mp': return this.err('No calculo “±”: separalo en dos ecuaciones');
       case 'left': {
         const d = this.readDelim();
         if (d === '.') return undefined;
-        frames.push({ type: (d === '|' || d === '\\vert' || d === '\\lvert') ? 'abs' : 'paren', toks: [] });
+        frames.push({ type: (d === '|' || d === '\\vert' || d === '\\lvert' || d === '\\Vert' || d === '\\|' || d === '\\lVert') ? 'abs' : 'paren', toks: [] });
         return undefined;
       }
       case 'right': {
@@ -301,8 +369,8 @@ class Conv {
         if (d === '.') return undefined;
         return this.closeFrame(frames);
       }
-      case 'lvert': frames.push({ type: 'abs', toks: [] }); return undefined;
-      case 'rvert': return this.closeFrame(frames);
+      case 'lvert': case 'lVert': frames.push({ type: 'abs', toks: [] }); return undefined;
+      case 'rvert': case 'rVert': return this.closeFrame(frames);
       case 'lbrack': case 'lbrace': case 'langle': case 'lparen': case '{': frames.push({ type: 'paren', toks: [] }); return undefined;
       case 'rbrack': case 'rbrace': case 'rangle': case 'rparen': case '}': return this.closeFrame(frames);
       case 'degree': return push(this.unitTok('deg'));

@@ -43,6 +43,7 @@ const SECTIONS = [
     ['Funciones', `${ex('M(x) \\coloneq \\frac{qx}{2}(L-x)')} y después ${ex('M(2\\,\\mathrm{m}) =')}`],
     ['Unidades', 'kN, MPa, kPa, GPa, cm, mm, m, kg, kgf, tf, s, deg (o <code>30deg</code> → 30°). Se escriben pegadas al número: <code>20cm^2</code>.'],
     ['Matrices', `${ex('K^{-1}=')} ${ex('\\det(K)=')} ${ex('K^{\\top}=')} ${ex('u \\coloneq K^{-1}\\cdot F =')}`],
+    ['Vectores', 'Con vectores columna: producto escalar a·b (tecla * o botón a·b), producto vectorial a×b (escribí xx o botón a×b; 3 componentes) y módulo |a|. Entre matrices, · es el producto común.'],
     ['Orden', 'Se calcula de arriba hacia abajo: usá una variable después de definirla.'],
     ['Sin “=”', 'Una ecuación sin “:=” ni “=” al final es solo una fórmula escrita; no se calcula.'],
   ]],

@@ -57,6 +57,22 @@ const cases = [
   ["\\sigma'_{x}\\coloneq3MPa", 'def'],
   ["2\\sigma'_{x}=", '6\\,\\mathrm{MPa}'],
   ["z'=", 'error'],
+  // vectores: producto escalar (·), vectorial (×) y módulo
+  ['a\\coloneq\\begin{bmatrix}1\\\\ 2\\\\ 3\\end{bmatrix}', 'def'],
+  ['b\\coloneq\\begin{bmatrix}4\\\\ 5\\\\ 6\\end{bmatrix}', 'def'],
+  ['a\\cdot b=', '32'],
+  ['a\\times b=', '\\begin{bmatrix} -3 \\\\ 6 \\\\ -3 \\end{bmatrix}'],
+  ['\\left|a\\right|=', '3.742'],
+  ['\\left\\Vert b\\right\\Vert=', '8.775'],
+  ['c\\coloneq a\\times b', 'def'],
+  ['a\\cdot c=', '0'],
+  ['2\\times3+\\left|-4\\right|=', '10'],
+  ['r\\coloneq\\begin{bmatrix}2m\\\\ 0m\\\\ 0m\\end{bmatrix}', 'def'],
+  ['F_{v}\\coloneq\\begin{bmatrix}0kN\\\\ 5kN\\\\ 0kN\\end{bmatrix}', 'def'],
+  ['M_{v}\\coloneq r\\times F_{v}=', '\\begin{bmatrix} 0 \\\\ 0 \\\\ 10 \\end{bmatrix}\\,\\mathrm{kN}{\\cdot}\\mathrm{m}'],
+  ['W_{F}\\coloneq F_{v}\\cdot r=', '0\\,\\mathrm{kN}{\\cdot}\\mathrm{m}'],
+  ['\\begin{bmatrix}1 & 2\\end{bmatrix}\\times\\begin{bmatrix}1 & 2\\end{bmatrix}=', 'error'],
+  ['u_{2}\\coloneq K^{-1}\\cdot F=', '\\begin{bmatrix} 3.333 \\\\ 1.667 \\end{bmatrix}'],
   ['F_{3}\\coloneq50kN\\cdot2m=', '100\\,\\mathrm{kN}{\\cdot}\\mathrm{m}'],
 ];
 for (const [latex, expect] of cases) {
