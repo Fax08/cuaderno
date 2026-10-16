@@ -96,6 +96,31 @@ export function serializePlot(a) {
   return lines.join('\n');
 }
 
+// ---------- bloque Resolver (```resolver) ----------
+export const SOLVER_DEFAULTS = { vars: '', eqs: [''], usar: '1' };
+
+export function parseSolverSource(src) {
+  const a = { ...SOLVER_DEFAULTS, eqs: [] };
+  for (const line of src.split(/\r?\n/)) {
+    const i = line.indexOf(':');
+    if (i < 0) continue;
+    const k = line.slice(0, i).trim();
+    const v = line.slice(i + 1).trim();
+    if (k === 'ec') a.eqs.push(v);
+    else if (k === 'incognitas' || k === 'incógnitas') a.vars = v;
+    else if (k === 'usar') a.usar = v;
+  }
+  if (!a.eqs.length) a.eqs = [''];
+  return a;
+}
+
+export function serializeSolver(a) {
+  const lines = [`incognitas: ${a.vars || ''}`];
+  (a.eqs || []).filter((e) => e && e.trim()).forEach((e) => lines.push(`ec: ${e}`));
+  if (a.usar && a.usar !== '1') lines.push(`usar: ${a.usar}`);
+  return lines.join('\n');
+}
+
 export function markdownItPlot(md) {
   if (md.__cuadernoPlot) return;
   md.__cuadernoPlot = true;
@@ -103,6 +128,7 @@ export function markdownItPlot(md) {
   md.renderer.rules.fence = (tokens, idx, options, env, self) => {
     const t = tokens[idx];
     if (t.info.trim() === 'plot') return `<div data-type="plot" data-src="${escAttr(t.content)}"></div>\n`;
+    if (t.info.trim() === 'resolver') return `<div data-type="solver" data-src="${escAttr(t.content)}"></div>\n`;
     return orig ? orig(tokens, idx, options, env, self) : self.renderToken(tokens, idx, options);
   };
 }

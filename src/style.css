@@ -295,6 +295,33 @@ math-field::part(virtual-keyboard-toggle) { display: none; }
 .gk-status[data-kind="bad"] { color: var(--bad); }
 .dialog-text.small { font-size: 12px; }
 
+/* ---------- bloque Resolver ---------- */
+.solver-node { border: 1px solid var(--rule); border-left: 3px solid var(--accent); border-radius: 8px; background: var(--surface); margin: 1em 0; padding: 10px 14px 12px; font-family: var(--sans); display: grid; gap: 8px; }
+.solver-node.selected { outline: 2px solid var(--accent); }
+.sv-head { display: flex; align-items: baseline; gap: 10px; }
+.sv-title { font: 600 14px var(--sans); cursor: pointer; }
+.sv-sub { flex: 1; font-size: 12.5px; color: var(--muted); }
+.sv-field { display: grid; gap: 3px; font-size: 12px; color: var(--muted); }
+.sv-vars { font: 14px var(--mono); color: var(--ink); background: var(--inset); border: 1px solid var(--rule); border-radius: 5px; padding: 6px 8px; }
+.sv-eqs-label { font-size: 12px; color: var(--muted); }
+.sv-eqs { display: grid; gap: 6px; }
+.sv-eq { display: flex; align-items: center; gap: 8px; }
+.sv-n { font: 11px var(--mono); color: var(--muted); width: 14px; text-align: right; }
+.sv-eq math-field { flex: 1; }
+.sv-add { justify-self: start; }
+.sv-out:empty { display: none; }
+.sv-summary { font-weight: 600; color: var(--good); font-size: 13px; }
+.sv-table-wrap { overflow-x: auto; }
+.sv-table { border-collapse: collapse; font-size: 15px; }
+.sv-table th, .sv-table td { padding: 4px 14px; border-bottom: 1px solid var(--rule); text-align: right; }
+.sv-table th { font-weight: 400; color: var(--muted); }
+.sv-table tr.on td { background: var(--accent-soft); }
+.sv-table input { accent-color: var(--accent); cursor: pointer; }
+.sv-error { margin: 0; font-size: 13px; color: var(--bad); background: var(--bad-soft); border-radius: 5px; padding: 6px 10px; }
+.sv-warn { margin: 0; font-size: 12.5px; color: var(--warn); }
+.sv-hint { margin: 0; font-size: 12px; color: var(--muted); }
+.math-note { font: italic 12.5px var(--sans); color: var(--muted); }
+
 /* ---------- panel de ecuación: dos cuadros (símbolos y estructuras) ---------- */
 .sym-box { border-bottom: 1px solid var(--rule); padding-bottom: 2px; }
 .sym-box:last-of-type { border-bottom: 0; }

@@ -573,7 +573,11 @@ export function valueToLatex(v, target) {
       arr = arr.map((row) => row.map((x) => x.toNumber(name)));
       factor = `\\,${unitLatex(name)}`;
     }
-    const body = arr.map((row) => row.map((x) => (math.isUnit(x) ? unitValueLatex(autoUnit(x)) : fmtNum(x))).join(' & ')).join(' \\\\ ');
+    // Restos de redondeo (p. ej. 6.7×10⁻¹⁶ junto a valores de orden 1, o una matriz toda ~0) se muestran como 0
+    const nums = arr.flat().filter((x) => typeof x === 'number');
+    const big = nums.reduce((a, x) => Math.max(a, Math.abs(x)), 0);
+    const clean = (x) => (typeof x === 'number' && (Math.abs(x) < 1e-12 * Math.max(big, 1) || (big < 1e-12 && Math.abs(x) < 1e-12)) ? 0 : x);
+    const body = arr.map((row) => row.map((x) => (math.isUnit(x) ? unitValueLatex(autoUnit(x)) : fmtNum(clean(x)))).join(' & ')).join(' \\\\ ');
     return `\\begin{bmatrix} ${body} \\end{bmatrix}${factor}`;
   }
   return `\\text{${String(v).replace(/[{}\\]/g, '')}}`;
@@ -785,21 +789,256 @@ export function samplePlot(spec, ctx) {
 
 // ---------- motor de la página ----------
 // Recorre las ecuaciones en orden y guarda los resultados por posición.
+// ---------- resolvedor (bloque "Resolver", como Given/Find de MathCad) ----------
+// Nombre que define una ecuación "x := …" (o null si no es una definición simple)
+export function defTarget(latex) {
+  const d = DEF_RE.exec((latex || '').trim());
+  if (!d) return null;
+  const lhs = d[1].replace(/\\left|\\right/g, '').trim();
+  if (/\(/.test(lhs)) return null;
+  try { return identName(lhs); } catch { return null; }
+}
+
+// Ejecuta la sentencia y, si es una definición simple, devuelve su código compilado para
+// poder recalcularla rápido con otros valores de las incógnitas
+function planStatement(latex, ctx) {
+  const d = DEF_RE.exec((latex || '').trim());
+  if (d) {
+    const lhs = d[1].replace(/\\left|\\right/g, '').trim();
+    const { rhs } = splitTail(d[2].trim());
+    if (!/\(/.test(lhs) && rhs.trim()) {
+      try {
+        const name = identName(lhs);
+        const code = math.compile(convert(rhs, ctx));
+        ctx.set(name, code.evaluate(ctx.scope));
+        ctx.funcs.delete(name);
+        return { name, code };
+      } catch { /* se ejecuta como sentencia común */ }
+    }
+  }
+  runStatement(latex, ctx);
+  return null;
+}
+
+const GREEK_BY_CHAR = Object.fromEntries(Object.entries({ alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', theta: 'θ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π', rho: 'ρ', sigma: 'σ', tau: 'τ', phi: 'φ', omega: 'ω', Delta: 'Δ', Sigma: 'Σ', Omega: 'Ω' }).map(([k, v]) => [v, k]));
+
+// "t = 1, a = 1, b = 0, θ = 0.5" → [{ name, guess }]
+export function parseUnknowns(text) {
+  return String(text || '').split(/[,;\n]+/).map((p) => p.trim()).filter(Boolean).map((p) => {
+    const m = /^([^=]+?)\s*(?:=\s*(.+))?$/.exec(p);
+    // θ → \theta (las letras griegas escritas directo)
+    let raw = m[1].trim().replace(/[α-ωΑ-Ω]/g, (c) => (GREEK_BY_CHAR[c] ? `\\${GREEK_BY_CHAR[c]}` : c));
+    if (/^[a-zA-Z]+$/.test(raw) && GREEK.has(raw)) raw = '\\' + raw;
+    let name;
+    try { name = identName(raw); } catch { throw new CalcError('No entiendo la incógnita “' + m[1].trim() + '”. Escribí, por ejemplo, t = 1, a = 0.5'); }
+    let guess = 1;
+    let unit = null;
+    if (m[2]) {
+      let g;
+      try { g = math.evaluate(m[2].replace(/(\d),(\d)/g, '$1.$2')); } catch { g = NaN; }
+      if (math.isUnit(g)) { unit = g.formatUnits(); guess = g.toNumber(unit); } else guess = Number(g);
+      if (!Number.isFinite(guess)) throw new CalcError('El valor inicial de ' + prettyName(name) + ' tiene que ser un número (con unidad si hace falta: 10 kN)');
+    }
+    return { name, guess, unit };
+  });
+}
+
+const residualNums = (v) => {
+  if (typeof v === 'number') return [v];
+  if (typeof v === 'boolean') return [v ? 0 : 1];
+  if (math.isUnit(v)) return [v.value ?? 0];
+  if (math.isComplex(v)) return [v.re, v.im];
+  if (math.isMatrix(v) || Array.isArray(v)) return flat(v).flatMap(residualNums);
+  return [NaN];
+};
+
+function solveLinear(A, b) {
+  const n = b.length;
+  const M = A.map((r, i) => [...r, b[i]]);
+  for (let c = 0; c < n; c++) {
+    let p = c;
+    for (let r = c + 1; r < n; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r;
+    if (Math.abs(M[p][c]) < 1e-300) return null;
+    [M[c], M[p]] = [M[p], M[c]];
+    for (let r = c + 1; r < n; r++) {
+      const f = M[r][c] / M[c][c];
+      for (let k = c; k <= n; k++) M[r][k] -= f * M[c][k];
+    }
+  }
+  const x = Array(n).fill(0);
+  for (let r = n - 1; r >= 0; r--) {
+    let sum = M[r][n];
+    for (let k = r + 1; k < n; k++) sum -= M[r][k] * x[k];
+    x[r] = sum / M[r][r];
+  }
+  return x;
+}
+
+// Levenberg–Marquardt con jacobiano numérico: minimiza ‖F(x)‖²
+function levenbergMarquardt(F, x0) {
+  const norm2 = (f) => f.reduce((a, v) => a + v * v, 0);
+  const safe = (x) => { try { const f = F(x); return f.every(Number.isFinite) ? f : null; } catch { return null; } };
+  let x = x0.slice();
+  let f = safe(x);
+  if (!f) throw new CalcError('Con los valores iniciales no se pueden calcular las ecuaciones. Revisá que todo esté definido.');
+  let cost = norm2(f);
+  let lambda = 1e-3;
+  let it = 0;
+  for (; it < 300 && cost > 1e-26; it++) {
+    const n = x.length, m = f.length;
+    const Jm = Array.from({ length: m }, () => Array(n).fill(0));
+    for (let j = 0; j < n; j++) {
+      const h = 1e-7 * Math.max(1, Math.abs(x[j]));
+      const xp = x.slice(); xp[j] += h;
+      const fp = safe(xp) || f;
+      for (let i = 0; i < m; i++) Jm[i][j] = (fp[i] - f[i]) / h;
+    }
+    const A = Array.from({ length: n }, (_, i) => Array.from({ length: n }, (_, j) => Jm.reduce((a, row) => a + row[i] * row[j], 0)));
+    const g = Array.from({ length: n }, (_, i) => Jm.reduce((a, row, k) => a + row[i] * f[k], 0));
+    let improved = false;
+    while (lambda < 1e14) {
+      const Ad = A.map((row, i) => row.map((v, j) => (i === j ? v + lambda * (v + 1e-9) : v)));
+      const step = solveLinear(Ad, g.map((v) => -v));
+      if (step) {
+        const xn = x.map((v, i) => v + step[i]);
+        const fn = safe(xn);
+        if (fn && norm2(fn) < cost) {
+          const small = Math.sqrt(norm2(step)) < 1e-15 * (1 + Math.sqrt(norm2(x)));
+          x = xn; f = fn; cost = norm2(fn); lambda = Math.max(lambda / 3, 1e-15); improved = true;
+          if (small) it = 1e9;
+          break;
+        }
+      }
+      lambda *= 4;
+    }
+    if (!improved) break;
+  }
+  return { x, residual: Math.sqrt(cost), iterations: it };
+}
+
+// Resuelve un bloque. stmts: ecuaciones de la página que están antes del bloque.
+export function solveBlock(attrs, stmts, preset) {
+  const unknowns = parseUnknowns(attrs.vars);
+  if (!unknowns.length) return { error: 'Escribí las incógnitas con un valor inicial, por ejemplo: t = 1, a = 1' };
+  const eqs = (attrs.eqs || []).map((e) => (e || '').trim()).filter(Boolean);
+  if (!eqs.length) return { error: 'Agregá al menos una ecuación' };
+  const names = new Set(unknowns.map((u) => u.name));
+  // Contexto con las incógnitas en su valor inicial; se planifican las definiciones previas
+  const ctx = new Ctx();
+  preset.forEach((v, n) => ctx.set(n, v));
+  // Valor de una incógnita a partir del número que maneja el método (en la unidad del valor inicial)
+  const asValue = (u, x) => (u.unit ? math.unit(x, u.unit) : x);
+  unknowns.forEach((u) => ctx.set(u.name, asValue(u, u.guess)));
+  const steps = [];
+  for (const st of stmts) {
+    if (st.target && names.has(st.target)) continue;
+    const step = planStatement(st.latex, ctx);
+    if (step) steps.push(step);
+  }
+  const codes = eqs.map((e) => {
+    const k = lastTopEq(e);
+    const lhs = k >= 0 ? e.slice(0, k) : e;
+    const rhs = k >= 0 ? e.slice(k + 1) : '0';
+    try {
+      return math.compile('(' + convert(lhs, ctx) + ') - (' + convert(rhs.trim() || '0', ctx) + ')');
+    } catch (err) {
+      throw new CalcError('En la ecuación ' + e.replace(/\\/g, '') + ': ' + errText(err));
+    }
+  });
+  const base = { ...ctx.scope };
+  const F = (x) => {
+    const scope = { ...base };
+    unknowns.forEach((u, i) => { scope['v_' + u.name] = asValue(u, x[i]); });
+    for (const st of steps) { try { scope['v_' + st.name] = st.code.evaluate(scope); } catch { /* sigue */ } }
+    return codes.flatMap((c) => residualNums(c.evaluate(scope)));
+  };
+  const guess = unknowns.map((u) => u.guess);
+  let m;
+  try { m = F(guess).length; } catch (e) {
+    if (/Unit|do not match/i.test(String(e && e.message))) throw new CalcError('Las unidades no coinciden. Si una incógnita tiene unidades, ponéselas en el valor inicial: R_A = 10 kN');
+    throw new CalcError(errText(e));
+  }
+  // Varios puntos de partida (el inicial + otros alrededor, siempre los mismos) para encontrar
+  // todas las soluciones distintas que se puedan
+  let seed = 20261016;
+  const rand = () => { seed = (seed * 1664525 + 1013904223) % 4294967296; return seed / 4294967296; };
+  const starts = [guess];
+  const spreads = [2, 5, 10, 30];
+  for (let k = 0; k < 31; k++) starts.push(guess.map((g) => g + (rand() * 2 - 1) * spreads[k % spreads.length] * Math.max(1, Math.abs(g))));
+  const found = [];
+  let best = null;
+  for (const x0 of starts) {
+    let r;
+    try { r = levenbergMarquardt(F, x0); } catch { continue; }
+    if (!best || r.residual < best.residual) best = r;
+    const scale = 1 + Math.max(...r.x.map(Math.abs));
+    if (r.residual >= 1e-7 * scale) continue;
+    const x = r.x.map((v) => (Math.abs(v) < 1e-10 ? 0 : v));
+    const same = found.find((f) => f.x.every((v, i) => Math.abs(v - x[i]) <= 1e-5 * (1 + Math.abs(v))));
+    if (!same) found.push({ x, residual: r.residual, dist: Math.hypot(...x.map((v, i) => v - guess[i])) });
+  }
+  if (!found.length) {
+    if (!best) throw new CalcError('Con los valores iniciales no se pueden calcular las ecuaciones. Revisá que todo esté definido.');
+    return {
+      ok: false,
+      error: 'No encontré una solución que cumpla todas las ecuaciones (el error mínimo fue ' + fmtNum(best.residual).replace(/\\times10\^\{(-?\d+)\}/, ' × 10^$1') + '). Revisá el planteo o probá otros valores iniciales.',
+      values: unknowns.map((u, i) => ({ name: u.name, value: asValue(u, best.x[i]) })),
+    };
+  }
+  // La más cercana a los valores iniciales primero
+  found.sort((a, b) => a.dist - b.dist);
+  const pick = Math.min(Math.max(1, parseInt(attrs.usar, 10) || 1), found.length) - 1;
+  return {
+    ok: true,
+    solutions: found.map((f) => f.x),
+    chosen: pick,
+    names: unknowns.map((u) => u.name),
+    values: unknowns.map((u, i) => ({ name: u.name, value: asValue(u, found[pick].x[i]) })),
+    units: unknowns.map((u) => u.unit),
+    residual: found[pick].residual,
+    equations: m,
+    unknownsCount: unknowns.length,
+    warning: m < unknowns.length ? 'Hay menos ecuaciones (' + m + ') que incógnitas (' + unknowns.length + '): puede haber infinitas soluciones; se muestran algunas.' : null,
+  };
+}
+
+// ---------- motor de la página ----------
+// 1) resuelve los bloques "Resolver" en orden; 2) recorre las ecuaciones con esos valores.
 export const engine = {
   results: new Map(),
   snaps: new Map(),
   views: new Set(),
   run(doc) {
-    const ctx = new Ctx();
+    const stmts = [];
+    const solvers = [];
+    doc.descendants((node, pos) => {
+      const t = node.type.name;
+      if (t === 'mathInline' || t === 'mathBlock') { stmts.push({ pos, latex: node.attrs.latex, target: defTarget(node.attrs.latex) }); return false; }
+      if (t === 'solver') { solvers.push({ pos, attrs: node.attrs, before: stmts.length }); return false; }
+      return t !== 'plot';
+    });
     const results = new Map();
     const snaps = new Map();
+    const solved = new Map();
+    const unknownNames = new Set();
+    for (const sv of solvers) {
+      let res;
+      try { res = solveBlock(sv.attrs, stmts.slice(0, sv.before), solved); } catch (e) { res = { error: errText(e) }; }
+      results.set(sv.pos, { kind: 'solver', ...res });
+      (res.values || []).forEach((v) => { solved.set(v.name, v.value); unknownNames.add(v.name); });
+    }
+    const ctx = new Ctx();
+    solved.forEach((v, n) => ctx.set(n, v));
     doc.descendants((node, pos) => {
       const t = node.type.name;
       if (t === 'mathInline' || t === 'mathBlock') {
-        results.set(pos, runStatement(node.attrs.latex, ctx));
+        const target = defTarget(node.attrs.latex);
+        if (target && unknownNames.has(target)) results.set(pos, { kind: 'def', note: 'incógnita: la calcula el bloque Resolver' });
+        else results.set(pos, runStatement(node.attrs.latex, ctx));
         return false;
       }
       if (t === 'plot') { snaps.set(pos, ctx.snapshot()); return false; }
+      if (t === 'solver') return false;
       return true;
     });
     this.results = results;

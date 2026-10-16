@@ -111,6 +111,7 @@ Publicar en GitHub Pages: `npm run deploy` (compila y sube `dist/` a la rama `gh
 9. ✅ Búsqueda en todas las notas
 
 10. ✅ Gráficos con altura ajustable y vista detallada (doble clic)
+15. ✅ Bloque Resolver (Given/Find): sistemas de ecuaciones no lineales con matrices y unidades, varias soluciones; vectores (· × |v|) y trigonometría completa
 14. ✅ Desplegables (toggles) con /t, guardados como <details>; palabras se traducen primero con fuentes gratuitas y oraciones con Google
 13. ✅ Traducción de oraciones: seleccionar + Alt+T (Google Cloud Translation con clave propia guardada en el navegador; sin clave, MyMemory)
 12. ✅ Traducción en páginas de idiomas: `hallo:` → hola, tablas de vocabulario que se completan solas (Wiktionary + MyMemory, caché en `.traducciones.json`)

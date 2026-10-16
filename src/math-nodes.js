@@ -164,6 +164,7 @@ class MathView {
     const r = typeof pos === 'number' ? engine.results.get(pos) : null;
     this.dom.classList.toggle('has-error', !!(r && r.error));
     this.dom.classList.toggle('is-def', !!(r && r.kind === 'def' && !r.error));
+    if (r && r.note) { this.res.innerHTML = `<span class="math-note">${r.note}</span>`; return; }
     if (!r || (!r.latex && !r.error)) { this.res.innerHTML = ''; this.res.title = ''; return; }
     if (r.error) {
       this.res.innerHTML = `<span class="math-error">⚠ ${r.error.replace(/[<>&]/g, '')}</span>`;

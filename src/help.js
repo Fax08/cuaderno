@@ -45,6 +45,7 @@ const SECTIONS = [
     ['Matrices', `${ex('K^{-1}=')} ${ex('\\det(K)=')} ${ex('K^{\\top}=')} ${ex('u \\coloneq K^{-1}\\cdot F =')}`],
     ['Vectores', 'Con vectores columna: producto escalar a·b (tecla * o botón a·b), producto vectorial a×b (escribí xx o botón a×b; 3 componentes) y módulo |a|. Entre matrices, · es el producto común.'],
     ['Trigonometría', 'sin, cos, tan, arcsin, atan2… se escriben directo (sin → seno). Los ángulos con grados: 30° (escribí 30deg o el botón °); sin unidad son radianes. sin^2 θ funciona, y arcsin(0.5) = deg da el resultado en grados.'],
+    ['Resolver', 'Menú / → Resolver ecuaciones. Escribís las incógnitas con un valor inicial (t = 1, a = 1; con unidades: R = 10 kN) y las ecuaciones (det(J) = 0, J·d = 0…). Busca desde muchos puntos de partida, lista las soluciones distintas y la elegida queda definida en toda la página.'],
     ['Orden', 'Se calcula de arriba hacia abajo: usá una variable después de definirla.'],
     ['Sin “=”', 'Una ecuación sin “:=” ni “=” al final es solo una fórmula escrita; no se calcula.'],
   ]],
