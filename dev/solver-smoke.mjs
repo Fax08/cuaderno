@@ -44,11 +44,6 @@ await page.evaluate(async (text) => {
 }, doc);
 await page.reload({ waitUntil: 'networkidle0' });
 await wait(3000);
-console.log('DEPURAR:', await page.evaluate(() => ({ crumbs: document.getElementById('crumbs').innerText, tipos: (() => { const o = []; window.cuaderno?.editor.state.doc.forEach((n) => o.push(n.type.name)); return o; })(), gate: document.getElementById('gate').hidden })), problems);
-console.log('TOAST:', await page.$eval('.toast', (t) => t.textContent).catch(() => ''));
-console.log('MOTOR:', await page.evaluate(async () => {
-  try { const m = await import('/src/calc.js'); m.engine.run(window.cuaderno.editor.state.doc); return `ok ${m.engine.results.size}`; } catch (e) { return `ERROR ${e.message} | ${String(e.stack).split(String.fromCharCode(10)).slice(0, 4).join(' / ')}`; }
-}));
 console.log('RESUMEN:', await page.$eval('.sv-summary', (e) => e.textContent).catch(() => 'sin resumen'));
 console.log('TABLA:', await page.$$eval('.sv-table tbody tr', (rows) => rows.map((r) => r.textContent.replace(/\s+/g, ' ').trim())));
 console.log('RESULTADOS DE LA PÁGINA:', await page.$$eval('.math-result', (els) => els.map((e) => e.textContent.trim().slice(0, 60)).filter(Boolean)));
