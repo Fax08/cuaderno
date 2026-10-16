@@ -97,7 +97,7 @@ await wait(700);
 const panelVisible = await page.$eval('.sym-panel:not(.char-panel)', (el) => !el.hidden);
 console.log('PANEL DE SÍMBOLOS VISIBLE AL EDITAR:', panelVisible);
 await page.screenshot({ path: `${shots}/demo-simbolos.png` });
-await page.click('.sym-panel:not(.char-panel) .sym-tab[data-tab="0"]');
+await page.click('.sym-panel:not(.char-panel) .sym-tab[data-tab="top:0"]');
 await page.keyboard.press('End');
 await page.click('.sym-panel:not(.char-panel) .sym-btn[data-i="0"]');
 await wait(300);

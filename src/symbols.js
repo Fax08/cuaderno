@@ -131,22 +131,34 @@ export function createSymbolPanel(host) {
   el.className = 'sym-panel';
   el.hidden = true;
   el.setAttribute('aria-label', 'Símbolos para ecuaciones');
-  let tab = ls.get('cuaderno.sym.tab', 0);
+  // Dos cuadros a la vez: símbolos arriba y estructuras (matrices, fracciones, integrales…) abajo
+  const TOP = [[0, 'Griegas'], [3, 'Operadores'], [5, 'Unidades']];
+  const BOTTOM = [[4, 'Matrices'], [1, 'Básicas'], [2, 'Cálculo']];
+  let tabTop = Math.min(ls.get('cuaderno.sym.top', 0), TOP.length - 1);
+  let tabBot = Math.min(ls.get('cuaderno.sym.bottom', 0), BOTTOM.length - 1);
   let collapsed = ls.get('cuaderno.sym.collapsed', false);
   let active = null;
 
   const esc = (s) => s.replace(/"/g, '&quot;');
+  const box = (title, list, cur, which, small) => {
+    const g = list[cur][0];
+    return `<div class="sym-box">
+      <div class="sym-box-title">${title}</div>
+      <div class="sym-tabs" role="tablist">${list.map(([, name], i) => `<button type="button" role="tab" class="sym-tab${i === cur ? ' on' : ''}" data-tab="${which}:${i}" aria-selected="${i === cur}">${name}</button>`).join('')}</div>
+      <div class="sym-grid${small ? ' small' : ''}">${GROUPS[g][1].map(([ins, show, t], i) => `<button type="button" class="sym-btn" data-g="${g}" data-i="${i}" title="${esc(t || show.replace(/\\/g, ''))}">${renderLatex(show, false)}</button>`).join('')}</div>
+    </div>`;
+  };
   function render() {
     el.classList.toggle('collapsed', collapsed);
     el.innerHTML = `
       <div class="sym-head">
-        <span class="sym-title">Símbolos</span>
-        <button type="button" class="sym-x" data-toggle title="${collapsed ? 'Mostrar símbolos' : 'Cerrar (las ecuaciones se siguen escribiendo con el teclado)'}" aria-label="${collapsed ? 'Mostrar símbolos' : 'Cerrar símbolos'}">${collapsed ? '▸' : '×'}</button>
+        <span class="sym-title">Ecuación</span>
+        <button type="button" class="sym-x" data-toggle title="${collapsed ? 'Mostrar símbolos y estructuras' : 'Cerrar (las ecuaciones se siguen escribiendo con el teclado)'}" aria-label="${collapsed ? 'Mostrar' : 'Cerrar'}">${collapsed ? '▸' : '×'}</button>
       </div>
       ${collapsed ? '' : `
-      <div class="sym-tabs" role="tablist">${GROUPS.map(([name], i) => `<button type="button" role="tab" class="sym-tab${i === tab ? ' on' : ''}" data-tab="${i}" aria-selected="${i === tab}">${name}</button>`).join('')}</div>
-      <div class="sym-grid${tab === 0 || tab === 3 ? ' small' : ''}">${GROUPS[tab][1].map(([ins, show, title], i) => `<button type="button" class="sym-btn" data-i="${i}" title="${esc(title || show.replace(/\\/g, ''))}">${renderLatex(show, false)}</button>`).join('')}</div>
-      <p class="sym-hint">Los botones insertan en la ecuación activa. Con el teclado: <code>sigma</code>, <code>/</code>, <code>^</code>, <code>_</code>, <code>mat3</code>.</p>`}`;
+      ${box('Símbolos', TOP, tabTop, 'top', TOP[tabTop][0] !== 5)}
+      ${box('Estructuras', BOTTOM, tabBot, 'bottom', false)}
+      <p class="sym-hint">Los botones insertan en la ecuación activa. Con el teclado: <code>mat2</code>, <code>sigma</code>, <code>/</code>, <code>^</code>, <code>_</code>. Entre celdas de una matriz: flechas.</p>`}`;
   }
 
   // Mantener el foco en la ecuación mientras se usan los botones
@@ -159,10 +171,15 @@ export function createSymbolPanel(host) {
       return;
     }
     const t = e.target.closest('[data-tab]');
-    if (t) { tab = Number(t.dataset.tab); ls.set('cuaderno.sym.tab', tab); render(); return; }
+    if (t) {
+      const [which, i] = t.dataset.tab.split(':');
+      if (which === 'top') { tabTop = Number(i); ls.set('cuaderno.sym.top', tabTop); } else { tabBot = Number(i); ls.set('cuaderno.sym.bottom', tabBot); }
+      render();
+      return;
+    }
     const b = e.target.closest('[data-i]');
     if (b && active) {
-      const ins = GROUPS[tab][1][Number(b.dataset.i)][0];
+      const ins = GROUPS[Number(b.dataset.g)][1][Number(b.dataset.i)][0];
       if (ins.startsWith('@')) active.executeCommand(ins.slice(1));
       else active.insert(ins, { focus: true, selectionMode: 'placeholder' });
       active.focus();

@@ -191,6 +191,10 @@ class MathView {
     this.out.hidden = true;
     this.dom.insertBefore(mf, this.res);
     configureMathfield(mf);
+    // Texto guía mientras está vacía (se escribe en LaTeX)
+    mf.placeholder = this.block
+      ? '\\text{Escribí la ecuación  ·  mat2 = matriz  ·  sigma = σ  ·  / = fracción}'
+      : '\\text{ecuación}';
     mf.value = this.node.attrs.latex;
     this.mf = mf;
     mf.addEventListener('input', () => this.commit(mf.value));
@@ -396,19 +400,57 @@ export const MathBlock = Node.create({
   addKeyboardShortcuts() {
     return {
       'Mod-Shift-m': () => this.editor.commands.insertMathBlock(),
-      Enter: () => openSelectedMath(this.editor, this.name),
+      Enter: () => {
+        if (openSelectedMath(this.editor, this.name)) return true;
+        // "$$" + Enter también crea la ecuación
+        const { state, view } = this.editor;
+        const { $from, empty } = state.selection;
+        if (!empty || !$from.parent.isTextblock || $from.parentOffset !== $from.parent.content.size) return false;
+        const text = $from.parent.textContent;
+        if (!/(^|\s)\$\$$/.test(text)) return false;
+        const tr = placeMathBlock(state, state.tr, $from, $from.pos - 2, $from.pos, this.type);
+        if (!tr) return false;
+        view.dispatch(tr.scrollIntoView());
+        return true;
+      },
     };
   },
   addInputRules() {
     return [new InputRule({
-      find: /^\$\$\s$/,
+      // "$$" + espacio, al comienzo del renglón o después de texto (también en listas y desplegables)
+      find: /(?:^|\s)\$\$\s$/,
       handler: ({ state, range }) => {
         const $from = state.doc.resolve(range.from);
-        const start = $from.before();
-        const { tr } = state;
-        tr.replaceWith(start, $from.after(), this.type.create({ latex: '' }));
-        tr.setSelection(NodeSelection.create(tr.doc, start));
+        const text = state.doc.textBetween(range.from, range.to);
+        const from = range.from + text.indexOf('$$');
+        return placeMathBlock(state, state.tr, $from, from, range.to, this.type) ? undefined : null;
       },
     })];
   },
 });
+
+// Borra el "$$" escrito y pone una ecuación en bloque: en lugar del renglón si quedó vacío,
+// o justo debajo si tiene texto. Devuelve la transacción, o null si no se pudo.
+function placeMathBlock(state, tr, $from, delFrom, delTo, type) {
+  const node = type.create({ latex: '' });
+  tr.delete(delFrom, delTo);
+  const $p = tr.doc.resolve(tr.mapping.map($from.pos));
+  const depth = $p.depth;
+  const parent = $p.node(depth - 1);
+  const index = $p.index(depth - 1);
+  const paraEmpty = $p.parent.content.size === 0 || !$p.parent.textContent.trim();
+  let pos;
+  if (paraEmpty && parent.canReplaceWith(index, index + 1, type)) {
+    pos = $p.before(depth);
+    tr.replaceWith(pos, $p.after(depth), node);
+  } else if (parent.canReplaceWith(index + 1, index + 1, type)) {
+    pos = $p.after(depth);
+    tr.insert(pos, node);
+  } else {
+    // p. ej. dentro de una celda de tabla que no admite ecuaciones en bloque: debajo del bloque más externo
+    pos = $p.after(1);
+    tr.insert(pos, node);
+  }
+  tr.setSelection(NodeSelection.create(tr.doc, pos));
+  return tr;
+}

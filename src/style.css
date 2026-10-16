@@ -295,6 +295,13 @@ math-field::part(virtual-keyboard-toggle) { display: none; }
 .gk-status[data-kind="bad"] { color: var(--bad); }
 .dialog-text.small { font-size: 12px; }
 
+/* ---------- panel de ecuación: dos cuadros (símbolos y estructuras) ---------- */
+.sym-box { border-bottom: 1px solid var(--rule); padding-bottom: 2px; }
+.sym-box:last-of-type { border-bottom: 0; }
+.sym-box-title { padding: 8px 10px 0; font: 600 10.5px/1.4 var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--muted); }
+.sym-box .sym-grid { max-height: 26vh; }
+math-field.math-editor::part(placeholder) { color: var(--muted); opacity: .8; font-size: .8em; }
+
 /* ---------- panel de caracteres especiales (texto) ---------- */
 .char-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(34px, 1fr)); gap: 3px; padding: 6px; max-height: 52vh; overflow-y: auto; }
 .char-btn { border: 1px solid transparent; background: var(--inset); border-radius: 5px; min-height: 34px; padding: 2px 4px; cursor: pointer; font: 17px/1 var(--serif); color: var(--ink); }
