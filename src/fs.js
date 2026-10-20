@@ -54,9 +54,26 @@ export async function hasPermission(handle, request = false) {
 const hidden = (name) => name.startsWith('.') || name.startsWith('_');
 const collator = new Intl.Collator('es', { numeric: true, sensitivity: 'base' });
 
+// Orden elegido arrastrando en la barra lateral: una lista de nombres en un .orden.json oculto
+// dentro de cada carpeta. Lo que no figura en la lista va al final, en orden alfabético.
+const ORDER_FILE = '.orden.json';
+async function readOrder(dir) {
+  try {
+    const list = JSON.parse(await (await (await dir.getFileHandle(ORDER_FILE)).getFile()).text());
+    return Array.isArray(list) ? list.map(String) : [];
+  } catch { return []; }
+}
+export async function saveOrder(dir, names) {
+  const fh = await dir.getFileHandle(ORDER_FILE, { create: true });
+  await writeText(fh, `${JSON.stringify(names, null, 2)}\n`);
+}
+
 // Árbol de carpetas y páginas .md. Cada nodo lleva su ruta relativa a la raíz.
 export async function readTree(dir, path = []) {
   const node = { name: dir.name, kind: 'dir', handle: dir, path, children: [] };
+  const order = await readOrder(dir);
+  const pos = new Map(order.map((n, i) => [n, i]));
+  const rank = (c) => (pos.has(c.name) ? pos.get(c.name) : order.length);
   for await (const [name, handle] of dir.entries()) {
     if (hidden(name)) continue;
     if (handle.kind === 'directory') {
@@ -65,7 +82,7 @@ export async function readTree(dir, path = []) {
       node.children.push({ name, kind: 'file', handle, path: [...path, name] });
     }
   }
-  node.children.sort((a, b) => collator.compare(a.name, b.name));
+  node.children.sort((a, b) => rank(a) - rank(b) || collator.compare(a.name, b.name));
   return node;
 }
 

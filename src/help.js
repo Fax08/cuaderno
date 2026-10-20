@@ -7,6 +7,7 @@ const SECTIONS = [
   ['General', [
     ['<kbd>Ctrl</kbd>+<kbd>P</kbd>', 'Buscar en todas las notas. Al abrir un resultado queda marcado el texto encontrado.'],
     ['<b>+</b> en el árbol', 'Agrega una página con plantilla (clase, apunte, vocabulario, gramática, trabajo…) o una carpeta.'],
+    ['Ordenar el árbol', 'Arrastrá una página o una carpeta y soltala arriba o abajo de otra de la misma carpeta (o <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>↓</kbd>). Las secciones (Clases, Dudas, Temario…) tienen orden fijo.'],
     ['⌂ en el árbol', 'Portada de la carpeta: entregas, dudas abiertas, clases y repaso de vocabulario.'],
     ['Guardado', 'Automático. <kbd>Ctrl</kbd>+<kbd>S</kbd> guarda al instante.'],
   ]],

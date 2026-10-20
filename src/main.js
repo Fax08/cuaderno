@@ -11,8 +11,7 @@ import { EditorState } from '@tiptap/pm/state';
 import { isValidYoutubeUrl } from '@tiptap/extension-youtube';
 import {
   supported, pickRoot, storedRoot, hasPermission, readTree, readText, writeText,
-  getDir, exists, createFile, safeName, saveAsset,
-} from './fs.js';
+  getDir, exists, createFile, safeName, saveAsset, saveOrder } from './fs.js';
 import { SECTION_ORDER, PRESETS, KINDS, suggestKind, ESTADOS, today, splitFrontmatter, joinFrontmatter, tpl } from './templates.js';
 import { createEditor } from './editor.js';
 import { ask, toast, esc } from './ui.js';
@@ -319,11 +318,11 @@ const isHub = (d, depth) => depth === 0 || d.children.some((c) => c.kind === 'di
 
 function fileItem(f) {
   const active = S.page && S.page.path.join('/') === f.path.join('/');
-  return `<li><button type="button" class="page-link${active ? ' active' : ''}" data-open="${P(f.path)}">${esc(label(f.name))}</button></li>`;
+  return `<li><button type="button" class="page-link${active ? ' active' : ''}" data-open="${P(f.path)}" draggable="true" data-drag="${P(f.path)}" title="Arrastrá para cambiar el orden (o Alt + ↑ / ↓)">${esc(label(f.name))}</button></li>`;
 }
 
 function details(key, summary, inner, cls) {
-  return `<details class="${cls}" data-key="${esc(key)}"${S.open.has(key) ? ' open' : ''}><summary>${summary}</summary>${inner}</details>`;
+  return `<details class="${cls}" data-key="${esc(key)}"${S.open.has(key) ? ' open' : ''}><summary draggable="true" data-drag="${esc(key)}">${summary}</summary>${inner}</details>`;
 }
 
 const addBtn = (path) => `<button type="button" class="add" data-menu="${P(path)}" title="Agregar página o carpeta">+</button>`;
@@ -373,6 +372,83 @@ $('tree').addEventListener('click', (e) => {
   if (add) { e.preventDefault(); e.stopPropagation(); openCreateMenu(add, add.dataset.menu.split('/')); return; }
   const link = e.target.closest('[data-open]');
   if (link) openPage(link.dataset.open.split('/'));
+});
+
+// ---------- reordenar arrastrando ----------
+// Páginas entre páginas y carpetas entre carpetas, dentro de la misma carpeta. Las secciones
+// (Clases, Dudas, Temario…) mantienen su orden fijo. El orden se guarda en .orden.json.
+const dragKind = (el) => (el.matches('.page-link') ? 'file' : 'dir');
+const parentKey = (key) => key.split('/').slice(0, -1).join('/');
+let drag = null;
+let mark = null;
+function clearMark() {
+  if (mark) mark.el.classList.remove('drop-before', 'drop-after');
+  mark = null;
+}
+
+async function moveItem(path, targetName, after) {
+  const parentPath = path.slice(0, -1);
+  const parent = findNode(parentPath);
+  const name = path[path.length - 1];
+  if (!parent || name === targetName) return;
+  const names = parent.children.map((c) => c.name).filter((n) => n !== name);
+  const i = names.indexOf(targetName);
+  if (i < 0) return;
+  names.splice(i + (after ? 1 : 0), 0, name);
+  try {
+    await saveOrder(await getDir(S.root, parentPath), names);
+    await refreshTree();
+  } catch (err) { toast(`No se pudo guardar el orden: ${err.message}`, 'bad'); }
+}
+
+$('tree').addEventListener('dragstart', (e) => {
+  const it = e.target.closest?.('[data-drag]');
+  if (!it) return;
+  drag = { key: it.dataset.drag, kind: dragKind(it), el: it };
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', it.dataset.drag);
+  it.classList.add('dragging');
+});
+$('tree').addEventListener('dragover', (e) => {
+  if (!drag) return;
+  const t = e.target.closest?.('[data-drag]');
+  const ok = t && t !== drag.el && dragKind(t) === drag.kind && parentKey(t.dataset.drag) === parentKey(drag.key);
+  if (!ok) { clearMark(); return; }
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const r = t.getBoundingClientRect();
+  const after = e.clientY > r.top + r.height / 2;
+  if (mark && mark.el === t && mark.after === after) return;
+  clearMark();
+  t.classList.add(after ? 'drop-after' : 'drop-before');
+  mark = { el: t, after };
+});
+$('tree').addEventListener('drop', (e) => {
+  if (!drag || !mark) return;
+  e.preventDefault();
+  const { el, after } = mark;
+  clearMark();
+  moveItem(drag.key.split('/'), el.dataset.drag.split('/').pop(), after);
+});
+$('tree').addEventListener('dragend', () => {
+  clearMark();
+  drag?.el.classList.remove('dragging');
+  drag = null;
+});
+// Con el teclado: Alt + ↑ / ↓ sobre una página o carpeta
+$('tree').addEventListener('keydown', async (e) => {
+  if (!e.altKey || (e.key !== 'ArrowUp' && e.key !== 'ArrowDown')) return;
+  const it = e.target.closest?.('[data-drag]');
+  if (!it) return;
+  e.preventDefault();
+  const key = it.dataset.drag;
+  const kind = dragKind(it);
+  const sibs = [...$('tree').querySelectorAll('[data-drag]')].filter((x) => dragKind(x) === kind && parentKey(x.dataset.drag) === parentKey(key));
+  const i = sibs.indexOf(it);
+  const j = i + (e.key === 'ArrowUp' ? -1 : 1);
+  if (i < 0 || j < 0 || j >= sibs.length) return;
+  await moveItem(key.split('/'), sibs[j].dataset.drag.split('/').pop(), j > i);
+  [...$('tree').querySelectorAll('[data-drag]')].find((x) => x.dataset.drag === key)?.focus();
 });
 
 // ---------- menú "+" ----------

@@ -113,6 +113,7 @@ Publicar en GitHub Pages: `npm run deploy` (compila y sube `dist/` a la rama `gh
 10. ✅ Gráficos con altura ajustable y vista detallada (doble clic)
 15. ✅ Bloque Resolver (Given/Find): sistemas de ecuaciones no lineales con matrices y unidades, varias soluciones; vectores (· × |v|) y trigonometría completa
 16. ✅ Bloque Tensiones principales: autovalores, cosenos directores (l²+m²+n²=1), invariantes y matriz principal; funciones autovalores/autovectores/principales
+17. ✅ Ordenar páginas y carpetas del árbol arrastrando (orden guardado en `.orden.json` de cada carpeta)
 14. ✅ Desplegables (toggles) con /t, guardados como <details>; palabras se traducen primero con fuentes gratuitas y oraciones con Google
 13. ✅ Traducción de oraciones: seleccionar + Alt+T (Google Cloud Translation con clave propia guardada en el navegador; sin clave, MyMemory)
 12. ✅ Traducción en páginas de idiomas: `hallo:` → hola, tablas de vocabulario que se completan solas (Wiktionary + MyMemory, caché en `.traducciones.json`)
